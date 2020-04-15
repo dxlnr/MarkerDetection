@@ -24,13 +24,15 @@ typedef std::vector<contour_typ> contour_vector_typ;
 /**
  * @function main
  */
-int main(int, char** argv)
+int main(int argc, char** argv)
 {
-	std::cout << "test" << std::endl;
+
+	ros::init(argc, argv, "marker_detection");
 
 	/// Read in a specific videoframe.
 	helper hlp;
-	std::string videopath = hlp.resolvePath("/src/marker_detection/data/templatevideo.MP4");
+	//std::string videopath = hlp.resolvePath("/src/marker_detection/data/templatevideo.MP4");
+	std::string videopath = hlp.resolvePath("/src/marker_detection/data/curtain_wall_movement_01.mp4");
 
 	std::cout << videopath << std::endl;
 
@@ -110,6 +112,8 @@ int main(int, char** argv)
 	//videoObject.release();
 
 	cv::destroyWindow(windowname);
+
+	ros::spin();
 
 	return 0;
 }

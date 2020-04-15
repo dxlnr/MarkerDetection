@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<launch>
+	<arg name="sim" default="false" />
+
+	<include file="$(find freenect_launch)/launch/freenect.launch" unless="$(arg sim)"/>
+	<node name="kinect_start" pkg="marker_detection" type="kinect_start" />
+
+
+</launch>

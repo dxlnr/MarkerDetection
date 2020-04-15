@@ -1,58 +1,80 @@
+/**
+  * listener.cpp
+  *
+  *  Created by: Daniel Illner on 12.04.2020
+  */
+
+#include <iostream>
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 
-/**
- * This tutorial demonstrates simple receipt of messages over the ROS system.
- */
-void chatterCallback(const std_msgs::String::ConstPtr& msg)
+#include <cv_bridge/cv_bridge.h>
+#include "opencv2/core/core.hpp"
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+#include "listener.h"
+
+#include <tf/transform_listener.h>
+
+
+
+
+Listener::Listener()
+:
+  sensor_syn_(NULL),
+  visual_sub_(NULL),
+  depth_sub_(NULL)
 {
-  ROS_INFO("I heard: [%s]", msg->data.c_str());
+  int sqs = 3;
+  ros::NodeHandle nh;
+  tflistener_ = new tf::TransformListener(nh);
+
+
+  visual_sub_ = new message_filters::Subscriber<sensor_msgs::Image> (nh, "/camera/rgb/image_color", sqs);
+  depth_sub_ = new message_filters::Subscriber<sensor_msgs::Image> (nh, "/camera/depth/image", sqs);
+  //cloud_sub_ = new message_filters::Subscriber<sensor_msgs::PointCloud2> (nh, "/camera/depth_registered/points", sqs);
+
+  //sensor_syn_ = new message_filters::Synchronizer<KinectSyncPolicy>(KinectSyncPolicy(sqs),  *visual_sub_);
+  //sensor_syn_->registerCallback(boost::bind(&Listener::kinectCallback, this, _1));
+  ROS_INFO_STREAM_NAMED("Listener", "is listening to " << "/camera");
+
+
 }
 
-int main(int argc, char **argv)
+Listener::~Listener()
 {
-  /**
-   * The ros::init() function needs to see argc and argv so that it can perform
-   * any ROS arguments and name remapping that were provided at the command line.
-   * For programmatic remappings you can use a different version of init() which takes
-   * remappings directly, but for most command-line programs, passing argc and argv is
-   * the easiest way to do it.  The third argument to init() is the name of the node.
-   *
-   * You must call one of the versions of ros::init() before using any other
-   * part of the ROS system.
-   */
-  ros::init(argc, argv, "listener");
+  delete tflistener_;
+}
 
-  /**
-   * NodeHandle is the main access point to communications with the ROS system.
-   * The first NodeHandle constructed will fully initialize this node, and the last
-   * NodeHandle destructed will close down the node.
-   */
-  ros::NodeHandle n;
 
-  /**
-   * The subscribe() call is how you tell ROS that you want to receive messages
-   * on a given topic.  This invokes a call to the ROS
-   * master node, which keeps a registry of who is publishing and who
-   * is subscribing.  Messages are passed to a callback function, here
-   * called chatterCallback.  subscribe() returns a Subscriber object that you
-   * must hold on to until you want to unsubscribe.  When all copies of the Subscriber
-   * object go out of scope, this callback will automatically be unsubscribed from
-   * this topic.
-   *
-   * The second parameter to the subscribe() function is the size of the message
-   * queue.  If messages are arriving faster than they are being processed, this
-   * is the number of messages that will be buffered up before beginning to throw
-   * away the oldest ones.
-   */
-  ros::Subscriber sub = n.subscribe("chatter", 1000, chatterCallback);
+void Listener::visualization(cv::Mat rgb_image)
+{
+  for (;;){
+    cv::imshow("RGB Frame", rgb_image);
+    if(cv::waitKey(30) >= 0) break;
+  }
 
-  /**
-   * ros::spin() will enter a loop, pumping callbacks.  With this version, all
-   * callbacks will be called from within this thread (the main one).  ros::spin()
-   * will exit when Ctrl-C is pressed, or the node is shutdown by the master.
-   */
-  ros::spin();
+}
 
-  return 0;
+void Listener::kinectCallback (const sensor_msgs::ImageConstPtr& rgb_img_msg,
+                               const sensor_msgs::ImageConstPtr& depth_img_msg)
+{
+  cv::Mat rgb_img = cv_bridge::toCvCopy(rgb_img_msg)-> image;
+  //cv::Mat rgb_img = rotate(rgb_img_org, 180.0);
+
+  //cv::Mat depth_img_org = cv_bridge::toCvCopy(depth_img_msg)->image;
+  //cv::Mat depth_img = rotate(depth_img_org, 180.0);
+
+
+  //pointcloudprep (point_cloud);
+  /*
+  ROS_INFO ("Nodeconstruction");
+  Node* node_ptr = new Node(rgb_img);  //Node construction
+  ROS_INFO ("successful");
+  */
+  visual_img_ = rgb_img.clone();
+
+  visualization(visual_img_);
+
 }
