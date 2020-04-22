@@ -8,3 +8,14 @@
 
 
 </launch>
+
+
+<!--
+	launch: Root element of the launch file
+	node: Each <node> tag specifies a node to be launched
+	name: Name of the node (free to choose)
+	pkg: Package containing the node
+	type: Type of the node, there must be a corresponding executable with the same name
+	output: Specifies where to output log message (screen: console, log: log file)
+
+-->

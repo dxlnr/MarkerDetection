@@ -1,0 +1,16 @@
+Steps (in terminal) to compile:
+
+	$ cd ~/catkin_ws/
+	$ catkin_make
+
+to run the package/node:
+	Always initialize a roscore in different terminal
+		$ roscore
+
+	$ cd ~/catkin_ws/
+	$ source ./devel/setup.bash (update the environment)
+	$ rosrun marker_detection marker_detection
+
+
+to run multiple nodes: roslaunch (written in XML as *.launch files)
+	

@@ -31,8 +31,8 @@ int main(int argc, char** argv)
 
 	/// Read in a specific videoframe.
 	helper hlp;
-	//std::string videopath = hlp.resolvePath("/src/marker_detection/data/templatevideo.MP4");
-	std::string videopath = hlp.resolvePath("/src/marker_detection/data/curtain_wall_movement_01.mp4");
+	std::string videopath = hlp.resolvePath("/src/marker_detection/data/templatevideo.MP4");
+	//std::string videopath = hlp.resolvePath("/src/marker_detection/data/curtain_wall_movement_01.mp4");
 
 	std::cout << videopath << std::endl;
 
