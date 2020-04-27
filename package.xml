@@ -19,6 +19,9 @@
 	<build_depend>sensor_msgs</build_depend>
 	<build_depend>nav_msgs</build_depend>
 	<build_depend>visualization_msgs</build_depend>
+	<build_depend>libpcl-all-dev</build_depend>
+	<build_depend>pcl_conversions</build_depend>
+  	<build_depend>pcl_ros</build_depend>
 	<build_depend>cv_bridge</build_depend>
 	<build_depend>image_transport</build_depend>
 	<build_depend>cmake_modules</build_depend>
@@ -30,6 +33,9 @@
 	<exec_depend>sensor_msgs</exec_depend>
 	<exec_depend>nav_msgs</exec_depend>
 	<exec_depend>visualization_msgs</exec_depend>
+	<exec_depend>libpcl-all-dev</exec_depend>
+	<exec_depend>pcl_conversions</exec_depend>
+  	<exec_depend>pcl_ros</exec_depend>
 	<exec_depend>cv_bridge</exec_depend>
 	<exec_depend>image_transport</exec_depend>
 	<exec_depend>cmake_modules</exec_depend>

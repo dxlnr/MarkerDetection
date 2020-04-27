@@ -13,4 +13,21 @@ to run the package/node:
 
 
 to run multiple nodes: roslaunch (written in XML as *.launch files)
+
+
+
+
+how to install ros package for melodic:
+	To find available packages, use:
+		$ apt search ros-melodic
+
+	$ sudo apt-get install ros-melodic-PKG_NAME
+
+
+important ros-melodic packages:
+	
+	$ sudo apt-get install ros-melodic-freenect-stack
+	$ sudo apt-get install ros-melodic-freenect-launch
+	
+	
 	

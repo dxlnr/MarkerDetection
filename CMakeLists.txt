@@ -14,10 +14,11 @@ find_package(catkin REQUIRED COMPONENTS
   	     sensor_msgs
   	     nav_msgs
   	     visualization_msgs
+	     pcl_conversions
+  	     pcl_ros
   	     cv_bridge
   	     image_transport
   	     cmake_modules
-  	     OpenCV REQUIRED
 )
 
 project(marker_detection)
@@ -30,7 +31,7 @@ project(marker_detection)
 catkin_package(
 	INCLUDE_DIRS include
 	LIBRARIES marker_detection
-	CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs nav_msgs visualization_msgs cv_bridge image_transport
+	CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs nav_msgs visualization_msgs pcl_conversions pcl_ros cv_bridge image_transport
 	DEPENDS system_lib
         DEPENDS message_runtime std_msgs 
 )
@@ -42,6 +43,13 @@ catkin_package(
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
+
+# PCL
+
+find_package(PCL 1.8.1 REQUIRED)
+include_directories(SYSTEM ${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 
 ### OpenCV ###
