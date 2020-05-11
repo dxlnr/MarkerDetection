@@ -9,8 +9,13 @@
 #include "opencv2/highgui.hpp"
 
 #include "helper.h"
+#include "listener.h"
 
-#include <pcl_ros/point_cloud.h>
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
+#include <opencv2/highgui/highgui.hpp>
+#include <cv_bridge/cv_bridge.h>
+
 
 #define THICKNESS_VALUE 4
 
@@ -28,6 +33,19 @@ typedef std::vector<cv::Point> contour_typ;
 // List of contours
 typedef std::vector<contour_typ> contour_vector_typ;
 
+void imageCallback(const sensor_msgs::ImageConstPtr& msg)
+{
+  try
+  {
+		cv::Mat rgb_img = cv_bridge::toCvShare(msg) -> image;
+    cv::imshow("view", rgb_img);
+    cv::waitKey(30);
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  }
+}
 
 
 int subpixSampleSafe(const cv::Mat& pSrc, const cv::Point2f& p) {
@@ -94,23 +112,38 @@ int main(int argc, char** argv)
 
 	/// Read in a specific videoframe.
 	helper hlp;
-	std::string videopath = hlp.resolvePath("/src/marker_detection/data/templatevideo.MP4");
+	//std::string videopath = hlp.resolvePath("/src/marker_detection/data/templatevideo.MP4");
 	//std::string videopath = hlp.resolvePath("/src/marker_detection/data/curtain_wall_movement_01.mp4");
 
-	std::cout << videopath << std::endl;
+	//std::cout << videopath << std::endl;
 
-	cv::Mat frame;
-	cv::VideoCapture cap(videopath);
+	//cv::Mat frame;
+	//cv::VideoCapture cap(videopath);
 
+	/*
 	if (!cap.isOpened())
 	{
 		std::cout << "No video frame captured." << std::endl;
 		return -1;
 	}
-	std::string windowname = "Frame Capture";
-  cv::namedWindow(windowname);
+	*/
+	//std::string windowname = "Frame Capture";
+  //cv::namedWindow(windowname);
 
-	cv::Mat filtered;
+	//cv::Mat filtered;
+
+	ros::NodeHandle nh;
+	//Listener listener;
+	cv::namedWindow("view");
+  cv::startWindowThread();
+  image_transport::ImageTransport it(nh);
+  image_transport::Subscriber sub = it.subscribe("/usb_cam/image_raw", 1, imageCallback);
+  ros::spin();
+
+
+
+
+	std::cout << "Test main 2" << std::endl;
 
 	// Default resolution of the frame is obtained.The default resolution is system dependent.
 	//int frame_width = cap.get(CV_CAP_PROP_FRAME_WIDTH);
@@ -118,6 +151,7 @@ int main(int argc, char** argv)
 
 	//cv::VideoWriter videoObject("../data/videowithmarkers.avi", CV_FOURCC('M', 'J', 'P', 'G'), 10, cv::Size(frame_width, frame_height));
 
+	/*
 	bool isFirstStripe = true;
 
 	while (cap.read(frame))
@@ -127,6 +161,8 @@ int main(int argc, char** argv)
 
 		cv::Mat grayScale;
 		filtered = frame.clone();
+
+		int slider_value = 170;
 
 		/// Converting to grayscale
 		cv::cvtColor(filtered, grayScale, cv::COLOR_BGR2GRAY);
@@ -197,7 +233,7 @@ int main(int argc, char** argv)
 							int h = n + (stripe.stripeLength >> 1);
 							iplStripe.at<uchar>(h,w) = (uchar)pixelInt;
 
-							/*
+
 							cv::Point p2;
 							p2.x = (int)subPixel.x;
 							p2.y = (int)subPixel.y;
@@ -206,7 +242,7 @@ int main(int argc, char** argv)
 								circle(filtered, p2, 1, CV_RGB(255, 0, 255), -1);
 							else
 								circle(filtered, p2, 1, CV_RGB(0, 255, 255), -1);
-							*/
+
 						}
 					}
 
@@ -287,13 +323,14 @@ int main(int argc, char** argv)
 			break;
 
 	}
+	*/
 
-	cap.release();
+	//cap.release();
 	//videoObject.release();
 
-	cv::destroyWindow(windowname);
+	//cv::destroyWindow(windowname);
 
-	ros::spin();
+	//ros::spin();
 
 	return 0;
 }

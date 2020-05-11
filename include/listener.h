@@ -35,12 +35,17 @@ class Listener {
     void kinectCallback (const sensor_msgs::ImageConstPtr& visual_img,
                          const sensor_msgs::ImageConstPtr& depth_img);
 
+    void rgbCallback (const sensor_msgs::ImageConstPtr& visual_img);
+
+    //void msgCallback (const sensor_msgs::ImageConstPtr& msg);
+
   protected:
     void visualization(cv::Mat rgb_image);
 
     cv::Mat visual_img_; // for visualization purpose.
 
     message_filters::Synchronizer<KinectSyncPolicy>* sensor_syn_;
+    message_filters::Subscriber<sensor_msgs::Image> *test;
     message_filters::Subscriber<sensor_msgs::Image> *visual_sub_;
     message_filters::Subscriber<sensor_msgs::Image> *depth_sub_;
     message_filters::Subscriber<sensor_msgs::PointCloud2> *cloud_sub_;

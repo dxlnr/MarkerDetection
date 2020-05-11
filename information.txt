@@ -28,6 +28,36 @@ important ros-melodic packages:
 	
 	$ sudo apt-get install ros-melodic-freenect-stack
 	$ sudo apt-get install ros-melodic-freenect-launch
+
+	$ sudo apt-get install ros-melodic-usb-cam
+
+
+
+
+
+
+
+
+***For later setup (maybe)
+	install rosbridge_suite
+		$ sudo apt-get install ros-<rosdistro>-rosbridge-server
+
+
+
+
+check your devices!
+
+	$ ls /dev/video*
+	
+	you can see the cameras in order of pluggin them in, hence the laptop cam should be /dev/video0, /dev/video1 the first webcam, /dev/video2 the second and so on.
+
+	then in your launchfile (start with the default one and make changes) make sure to set the video_device parameter accordingly.
+
+	<param name="video_device" value="/dev/video1"/>
+
+	
+	to check the topic 
+		$ rostopic echo /usb_cam/image_raw
 	
 	
 	

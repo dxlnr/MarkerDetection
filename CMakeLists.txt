@@ -44,7 +44,7 @@ catkin_package(
 include_directories(include ${catkin_INCLUDE_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
-# PCL
+### PCL ###
 
 find_package(PCL 1.8.1 REQUIRED)
 include_directories(SYSTEM ${PCL_INCLUDE_DIRS})
@@ -62,7 +62,7 @@ link_directories(${OpenCV_LIBRARY_DIRS})
 
 ### Sources to compile ###
 
-add_executable(marker_detection src/listener.cpp src/main.cpp src/helper.cpp)
+add_executable(marker_detection src/listener.cpp src/test.cpp src/helper.cpp)
 target_link_libraries(marker_detection ${catkin_LIBRARIES} ${OpenCV_LIBS})
 add_dependencies(marker_detection ${catkin_EXPORTED_TARGETS})
 
@@ -71,6 +71,12 @@ add_dependencies(marker_detection ${catkin_EXPORTED_TARGETS})
 ######################
 ## Installing Block ##
 ######################
+
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
 
 
 #############
