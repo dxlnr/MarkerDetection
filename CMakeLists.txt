@@ -62,7 +62,7 @@ link_directories(${OpenCV_LIBRARY_DIRS})
 
 ### Sources to compile ###
 
-add_executable(marker_detection src/listener.cpp src/test.cpp src/helper.cpp)
+add_executable(marker_detection src/listener.cpp src/list_main.cpp src/helper.cpp src/findmarker.cpp)
 target_link_libraries(marker_detection ${catkin_LIBRARIES} ${OpenCV_LIBS})
 add_dependencies(marker_detection ${catkin_EXPORTED_TARGETS})
 
