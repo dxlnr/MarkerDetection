@@ -17,15 +17,22 @@ FindMarker::~FindMarker(){
 
 void FindMarker::detectContours(){
 
+  cv::cvtColor(_image, _image, cv::COLOR_BGR2RGB);
+
   /// Converting to grayscale
   cv::cvtColor(_image, grayScale, cv::COLOR_BGR2GRAY);
   ///Thresholding and converting to binary
   cv::threshold(grayScale, grayScale, threshold_value, 255, cv::THRESH_BINARY);
+
+  cv::Mat test = grayScale;
+  //std::cout << "Test = " << std::endl << " "  << grayScale << std::endl << std::endl;
+
   /// Finding contours in the image.
   contour_vector_typ contours;
   cv::findContours(grayScale, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
 
   bool isFirstStripe = true;
+  bool isFirstMarker = true;
 
   for (size_t k = 0; k < contours.size(); k++)
   {
@@ -107,6 +114,7 @@ void FindMarker::detectContours(){
             else
               circle(_image, p2, 1, CV_RGB(0, 255, 255), -1);
             */
+
 
           }
         }
@@ -202,20 +210,106 @@ void FindMarker::detectContours(){
 
     //to get the matrix of perspective transform
     setReferenzPoints();
-    cv::Mat projMat(Size(3, 3), CV_32FC1);
+    cv::Mat projMat(cv::Size(3, 3), CV_32FC1);
     projMat = cv::getPerspectiveTransform(corners, set2Points);
 
     //create Marker Image
-    Mat imageMarker(Size(6, 6), CV_8UC1);
-    cv::warpPerspective(grayScale, imageMarker, projMat, Size(6,6));
+    cv::Mat imageMarker(cv::Size(6, 6), CV_8UC1);
+    cv::warpPerspective(grayScale, imageMarker, projMat, cv::Size(6,6));
 
     //threshold the marker image to get a B/W image
     //cv::threshold(...)
+
+    // ### Identify the marker ###
+
+    int code = 0;
+		for (int i = 0; i < 6; ++i) {
+			// Check if border is black
+			int pixel1 = imageMarker.at<uchar>(0, i); //top
+			int pixel2 = imageMarker.at<uchar>(5, i); //bottom
+			int pixel3 = imageMarker.at<uchar>(i, 0); //left
+			int pixel4 = imageMarker.at<uchar>(i, 5); //right
+
+			// 0 -> black
+			if ((pixel1 > 0) || (pixel2 > 0) || (pixel3 > 0) || (pixel4 > 0)) {
+				code = -1;
+        break;
+			}
+		}
+
+		if (code < 0) {
+      continue;
+		}
+
+    int cP[4][4];
+		for (int i = 0; i < 4; ++i) {
+			for (int j = 0; j < 4; ++j) {
+				// +1 -> no borders!
+				cP[i][j] = imageMarker.at<uchar>(i + 1, j + 1);
+				// If black then 1 else 0
+				cP[i][j] = (cP[i][j] == 0) ? 1 : 0;
+			}
+		}
+
+		// Save the ID of the marker, for each side
+		int codes[4];
+		codes[0] = codes[1] = codes[2] = codes[3] = 0;
+
+    // Calculate the code from all sides at once
+		for (int i = 0; i < 16; i++) {
+			// /4 to go through the rows
+			int row = i >> 2;
+      int col = i % 4;
+
+			// Multiplied by 2 to check for black values -> 0*2 = 0
+			codes[0] <<= 1;
+			codes[0] |= cP[row][col]; // 0\B0
+
+			// 4x4 structure -> Each column represents one side
+			codes[1] <<= 1;
+			codes[1] |= cP[3 - col][row]; // 90\B0
+
+			codes[2] <<= 1;
+			codes[2] |= cP[3 - row][3 - col]; // 180\B0
+
+			codes[3] <<= 1;
+			codes[3] |= cP[col][3 - row]; // 270\B0
+		}
+
+    // Account for symmetry -> One side complete white or black
+		if ((codes[0] == 0) || (codes[0] == 0xffff)) {
+      continue;
+		}
+
+    int angle = 0;
+
+		// Search for the smallest marker ID
+		code = codes[0];
+		for (int i = 1; i < 4; ++i) {
+			if (codes[i] < code) {
+				code = codes[i];
+        angle = i;
+			}
+		}
+
+		// Print ID
+		printf("Found: %04x\n", code);
+
+    /*
+		// Show the first detected marker in the image
+		if (isFirstMarker) {
+			cv::imshow("marker", imageMarker);
+			isFirstMarker = false;
+		}
+    */
+
   }
+
   cv::namedWindow("view", cv::WINDOW_NORMAL);
   cv::resizeWindow("view", 1280, 960);
   cv::imshow("view", _image);
-  cv::waitKey(30);
+  //cv::imshow("view", grayScale);
+  cv::waitKey(1);
 
 }
 
@@ -332,8 +426,14 @@ void FindMarker::setReferenzPoints(){
     The function sets the second set of 4 2D points.
     The points (−0.5, −0.5)(−0.5, 5.5)(5.5, 5.5)(5.5, −0.5) are used.
     */
-  set2Points[0].x = −0.5;  set2Points[0].y = −0.5;
-  set2Points[0].x = −0.5;  set2Points[0].y = 5.5;
+  set2Points[0].x = -0.5;  set2Points[0].y = -0.5;
+  set2Points[0].x = -0.5;  set2Points[0].y = 5.5;
   set2Points[0].x = 5.5;  set2Points[0].y = 5.5;
-  set2Points[0].x = 5.5;  set2Points[0].y = −0.5;
+  set2Points[0].x = 5.5;  set2Points[0].y = -0.5;
 }
+
+/*
+void FindMarker::identifyMarker(){
+
+}
+*/

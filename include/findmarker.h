@@ -39,7 +39,7 @@ class FindMarker {
     cv::Mat calculate_Stripe(double dx, double dy, Stripe & st);
 
 		void computeIntersection();
-		void setReferenzPoints()
+		void setReferenzPoints();
 
     cv::Mat _image;
     cv::Mat grayScale;
@@ -55,7 +55,7 @@ class FindMarker {
     typedef std::vector<contour_typ> contour_vector_typ;
 
     int thickness_value = 4;
-    int threshold_value = 170;
+    int threshold_value = 160;
 
 };
 
