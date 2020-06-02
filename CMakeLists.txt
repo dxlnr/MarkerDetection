@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 
-### ROS ### 
+### ROS ###
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules/")
 
@@ -33,7 +33,7 @@ catkin_package(
 	LIBRARIES marker_detection
 	CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs nav_msgs visualization_msgs pcl_conversions pcl_ros cv_bridge image_transport
 	DEPENDS system_lib
-        DEPENDS message_runtime std_msgs 
+        DEPENDS message_runtime std_msgs
 )
 
 
@@ -62,7 +62,7 @@ link_directories(${OpenCV_LIBRARY_DIRS})
 
 ### Sources to compile ###
 
-add_executable(marker_detection src/listener.cpp src/list_main.cpp src/helper.cpp src/findmarker.cpp)
+add_executable(marker_detection src/listener.cpp src/poseEstimation.cpp src/list_main.cpp src/helper.cpp src/findmarker.cpp)
 target_link_libraries(marker_detection ${catkin_LIBRARIES} ${OpenCV_LIBS})
 add_dependencies(marker_detection ${catkin_EXPORTED_TARGETS})
 
@@ -82,5 +82,3 @@ install(DIRECTORY include/${PROJECT_NAME}/
 #############
 ## Testing ##
 #############
-
-

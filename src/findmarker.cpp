@@ -5,6 +5,7 @@
   */
 
 #include "findmarker.h"
+#include "poseEstimation.h"
 
 
 FindMarker::FindMarker(cv::Mat image){
@@ -294,6 +295,7 @@ void FindMarker::detectContours(){
 
 		// Print ID
 		printf("Found: %04x\n", code);
+    printf("Angle: %i\n", angle);
 
     /*
 		// Show the first detected marker in the image
@@ -303,13 +305,65 @@ void FindMarker::detectContours(){
 		}
     */
 
+
+    if (angle != 0) {
+      cv::Point2f corrected_corners[4];
+			// Smallest id represents the x-axis, we put the values in the corrected_corners array
+			for (int i = 0; i < 4; i++) {
+        corrected_corners[(i + angle) % 4] = corners[i];
+      }
+
+			// We put the values back in the array in the sorted order
+			for (int i = 0; i < 4; i++)	{
+        corners[i] = corrected_corners[i];
+      }
+		}
+
+
+		for (int i = 0; i < 4; i++) {
+			// Here you have to use your own camera resolution (x) * 0.5
+			corners[i].x -= 320;
+			// -(corners.y) -> is neeeded because y is inverted
+			// Here you have to use your own camera resolution (y) * 0.5
+			corners[i].y = -corners[i].y + 240;
+		}
+
+		// 4x4 -> Rotation | Translation
+		//        0  0  0  | 1 -> (Homogene coordinates to combine rotation, translation and scaling)
+		float resultMatrix[16];
+		// Marker size in meters!
+		estimateSquarePose(resultMatrix, (cv::Point2f*)corners, 0.04346);
+
+		// This part is only for printing
+		for (int i = 0; i < 4; ++i) {
+			for (int j = 0; j < 4; ++j) {
+				std::cout << std::setw(6); // Total 6
+				std::cout << std::setprecision(4); // Numbers of decimal places = 4 (of the 6)
+
+				std::cout << resultMatrix[4 * i + j] << " ";
+			}
+			std::cout << "\n";
+		}
+		std::cout << "\n";
+		float x, y, z;
+		// Translation values in the transformation matrix to calculate the distance between the marker and the camera
+		x = resultMatrix[3];
+		y = resultMatrix[7];
+    z = resultMatrix[11];
+
+		// Euclidian distance
+		std::cout << "length: " << sqrt(x* x + y * y + z * z) << "\n";
+	  std::cout << "\n";
+
+
+
   }
 
   cv::namedWindow("view", cv::WINDOW_NORMAL);
-  cv::resizeWindow("view", 1280, 960);
+  cv::resizeWindow("view", 2560, 1980);
   cv::imshow("view", _image);
   //cv::imshow("view", grayScale);
-  cv::waitKey(1);
+  cv::waitKey(30);
 
 }
 
