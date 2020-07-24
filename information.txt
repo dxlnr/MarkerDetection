@@ -9,6 +9,7 @@ to run the package/node:
 
 	$ cd ~/catkin_ws/
 	$ source ./devel/setup.bash (update the environment)
+	$ roslaunch marker_detection camera_start.launch (start camera)
 	$ rosrun marker_detection marker_detection
 
 
@@ -43,7 +44,8 @@ important ros-melodic packages:
 		$ sudo apt-get install ros-<rosdistro>-rosbridge-server
 
 
-
+check rostopics!
+	$ rostopic list
 
 check your devices!
 
@@ -58,6 +60,8 @@ check your devices!
 	
 	to check the topic 
 		$ rostopic echo /usb_cam/image_raw
+		
+		$ rostopic echo /pylon_camera_node/image_raw
 	
 	
 	

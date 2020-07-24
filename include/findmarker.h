@@ -47,6 +47,10 @@ class FindMarker {
 		cv::Point2f corners[4];
 		cv::Point2f set2Points[4];
 
+		cv::Point pt;
+		cv::Point pt1;
+		cv::Point pt2;
+
 		float lineParams[16]; // Direction vector (x0,y0) and contained point (x1,y1) -> For each line -> 4x4 = 16
 
     // List of points
@@ -54,8 +58,11 @@ class FindMarker {
     // List of contours
     typedef std::vector<contour_typ> contour_vector_typ;
 
+		// Important values
     int thickness_value = 4;
     int threshold_value = 160;
+		int camera_resolution_x = 640;
+		int camera_resolution_y = 480;
 
 };
 

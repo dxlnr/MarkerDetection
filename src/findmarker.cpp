@@ -10,7 +10,6 @@
 
 FindMarker::FindMarker(cv::Mat image){
   _image = image;
-
 }
 
 FindMarker::~FindMarker(){
@@ -19,9 +18,12 @@ FindMarker::~FindMarker(){
 void FindMarker::detectContours(){
 
   cv::cvtColor(_image, _image, cv::COLOR_BGR2RGB);
+  //std::cout << "Image channels after BGR2RGB: " << _image.channels() << std::endl;
+  //std::cout << "image = " << std::endl << " " << _image << std::endl << std::endl;
 
   /// Converting to grayscale
   cv::cvtColor(_image, grayScale, cv::COLOR_BGR2GRAY);
+
   ///Thresholding and converting to binary
   cv::threshold(grayScale, grayScale, threshold_value, 255, cv::THRESH_BINARY);
 
@@ -194,11 +196,11 @@ void FindMarker::detectContours(){
       cv::fitLine (point_mat, lineParamsMat.col(i), cv::DIST_L2, 0, 0.01, 0.01 );
 
       // Two points needed to draw the line.
-      cv::Point pt1;
+      //cv::Point pt1;
 			pt1.x = (int)lineParams[8 + i] - (int)(50.0 * lineParams[i]);
 			pt1.y = (int)lineParams[12 + i] - (int)(50.0 * lineParams[4 + i]);
 
-			cv::Point pt2;
+			//cv::Point pt2;
 			pt2.x = (int)lineParams[8 + i] + (int)(50.0 * lineParams[i]);
 			pt2.y = (int)lineParams[12 + i] + (int)(50.0 * lineParams[4 + i]);
 
@@ -241,6 +243,8 @@ void FindMarker::detectContours(){
 		if (code < 0) {
       continue;
 		}
+
+    //std::cout << "Found a marker." << std::endl;
 
     int cP[4][4];
 		for (int i = 0; i < 4; ++i) {
@@ -292,18 +296,11 @@ void FindMarker::detectContours(){
         angle = i;
 			}
 		}
+    std::cout << codes[0] << " " << codes[1] << " " << codes[2] << " " << codes[3] << std::endl;
 
 		// Print ID
 		printf("Found: %04x\n", code);
     printf("Angle: %i\n", angle);
-
-    /*
-		// Show the first detected marker in the image
-		if (isFirstMarker) {
-			cv::imshow("marker", imageMarker);
-			isFirstMarker = false;
-		}
-    */
 
 
     if (angle != 0) {
@@ -321,11 +318,9 @@ void FindMarker::detectContours(){
 
 
 		for (int i = 0; i < 4; i++) {
-			// Here you have to use your own camera resolution (x) * 0.5
-			corners[i].x -= 320;
+			corners[i].x -= camera_resolution_x * 0.5;
 			// -(corners.y) -> is neeeded because y is inverted
-			// Here you have to use your own camera resolution (y) * 0.5
-			corners[i].y = -corners[i].y + 240;
+			corners[i].y = -corners[i].y + (camera_resolution_y * 0.5);
 		}
 
 		// 4x4 -> Rotation | Translation
@@ -362,7 +357,9 @@ void FindMarker::detectContours(){
   cv::namedWindow("view", cv::WINDOW_NORMAL);
   cv::resizeWindow("view", 2560, 1980);
   cv::imshow("view", _image);
-  //cv::imshow("view", grayScale);
+  //cv::Mat testtest;
+  //cv::cvtColor(grayScale, testtest, CV_GRAY2RGB);
+  //cv::imshow("view", testtest);
   cv::waitKey(30);
 
 }
@@ -428,7 +425,9 @@ void FindMarker::fittingLine(){
 */
 
 void FindMarker::computeIntersection() {
-  // Calculate the intersection points of both lines
+  /**
+    Calculate the intersection points of both lines
+    */
 	for (int i = 0; i < 4; ++i) {
     // Go through the corners of the rectangle, 3 -> 0
     int j = (i + 1) % 4;
@@ -467,7 +466,7 @@ void FindMarker::computeIntersection() {
     corners[i].x = a;
     corners[i].y = b;
 
-    cv::Point pt;
+    //cv::Point pt;
     pt.x = (int)corners[i].x;
     pt.y = (int)corners[i].y;
 
