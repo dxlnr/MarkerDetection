@@ -11,11 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   	     rospy
   	     std_msgs
 	     tf
-  	     sensor_msgs
-  	     nav_msgs
-  	     visualization_msgs
-	     pcl_conversions
-  	     pcl_ros
+  	     geometry_msgs
+	     message_generation
   	     cv_bridge
   	     image_transport
   	     cmake_modules
@@ -23,6 +20,18 @@ find_package(catkin REQUIRED COMPONENTS
 
 project(marker_detection)
 
+###################################
+## Generate messages  		 ##
+###################################
+
+add_message_files(
+   FILES
+   reference.msg
+ )
+
+generate_messages(
+   DEPENDENCIES
+ )
 
 ###################################
 ## catkin specific configuration ##
@@ -31,7 +40,7 @@ project(marker_detection)
 catkin_package(
 	INCLUDE_DIRS include
 	LIBRARIES marker_detection
-	CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs nav_msgs visualization_msgs pcl_conversions pcl_ros cv_bridge image_transport
+	CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs message_runtime cv_bridge image_transport
 	DEPENDS system_lib
         DEPENDS message_runtime std_msgs
 )

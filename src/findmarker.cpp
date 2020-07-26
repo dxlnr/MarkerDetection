@@ -107,18 +107,6 @@ void FindMarker::detectContours(){
             p2.x = (int)subPixel.x;
             p2.y = (int)subPixel.y;
 
-
-            //std::cout << points[j] << std::endl;
-
-
-            /*
-            if (isFirstStripe)
-              circle(_image, p2, 1, CV_RGB(255, 0, 255), -1);
-            else
-              circle(_image, p2, 1, CV_RGB(0, 255, 255), -1);
-            */
-
-
           }
         }
 
@@ -354,12 +342,14 @@ void FindMarker::detectContours(){
 
   }
 
+  coordinates_msg.x = 1;
+  coordinates_msg.y = 1;
+  coordinates_msg.z = 1;
+
+  // Putting the camera output on screen.
   cv::namedWindow("view", cv::WINDOW_NORMAL);
   cv::resizeWindow("view", 2560, 1980);
   cv::imshow("view", _image);
-  //cv::Mat testtest;
-  //cv::cvtColor(grayScale, testtest, CV_GRAY2RGB);
-  //cv::imshow("view", testtest);
   cv::waitKey(30);
 
 }

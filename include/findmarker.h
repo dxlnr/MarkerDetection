@@ -15,6 +15,8 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 
+#include <geometry_msgs/Point.h>
+
 
 struct Stripe {
 	int stripeLength;
@@ -32,6 +34,8 @@ class FindMarker {
     ~FindMarker();
 
     void detectContours();
+
+		geometry_msgs::Point coordinates_msg;
 
   private:
 
@@ -60,7 +64,7 @@ class FindMarker {
 
 		// Important values
     int thickness_value = 4;
-    int threshold_value = 160;
+    int threshold_value = 170;
 		int camera_resolution_x = 640;
 		int camera_resolution_y = 480;
 
