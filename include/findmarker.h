@@ -15,6 +15,8 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 
+#include "opencv2/aruco.hpp"
+
 #include <geometry_msgs/Point.h>
 
 
@@ -64,9 +66,11 @@ class FindMarker {
 
 		// Important values
     int thickness_value = 4;
-    int threshold_value = 170;
+    int threshold_value = 160;
 		int camera_resolution_x = 640;
 		int camera_resolution_y = 480;
+
+		cv::Ptr<cv::aruco::Dictionary> dictionary;
 
 };
 

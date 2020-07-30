@@ -17,9 +17,22 @@ FindMarker::~FindMarker(){
 
 void FindMarker::detectContours(){
 
+  cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
+
+
+  dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+  //dictionary = new aruco::Dictionary(bits, bits, marker_size, correction_bit);
+  //dictionary = cv::aruco::generateCustomDictionary(36, 5);
+
   cv::cvtColor(_image, _image, cv::COLOR_BGR2RGB);
   //std::cout << "Image channels after BGR2RGB: " << _image.channels() << std::endl;
   //std::cout << "image = " << std::endl << " " << _image << std::endl << std::endl;
+
+  //std::vector<int> ids;
+  //std::vector<std::vector<cv::Point2f> > test_corners;
+  //cv::aruco::detectMarkers(_image, dictionary, test_corners, ids);
+
+  //cv::aruco::drawDetectedMarkers(_image, test_corners, ids);
 
   /// Converting to grayscale
   cv::cvtColor(_image, grayScale, cv::COLOR_BGR2GRAY);
@@ -338,19 +351,18 @@ void FindMarker::detectContours(){
 		std::cout << "length: " << sqrt(x* x + y * y + z * z) << "\n";
 	  std::cout << "\n";
 
-
+    coordinates_msg.x = x;
+    coordinates_msg.y = y;
+    coordinates_msg.z = z;
 
   }
 
-  coordinates_msg.x = 1;
-  coordinates_msg.y = 1;
-  coordinates_msg.z = 1;
 
   // Putting the camera output on screen.
   cv::namedWindow("view", cv::WINDOW_NORMAL);
   cv::resizeWindow("view", 2560, 1980);
   cv::imshow("view", _image);
-  cv::waitKey(30);
+  cv::waitKey(10);
 
 }
 
@@ -443,7 +455,6 @@ void FindMarker::computeIntersection() {
     // c -> Determinant = 0 -> linear dependent -> the direction vectors are parallel -> No division with 0
     double c = v1 * u0 - v0 * u1;
     if (fabs(c) < 0.001) {
-      std::cout << "lines parallel" << std::endl;
       continue;
     }
 

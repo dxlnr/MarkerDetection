@@ -10,6 +10,7 @@
 #include <opencv2/opencv.hpp>
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
+#include "opencv2/aruco.hpp"
 
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -39,7 +40,10 @@ class ReferenceFinder {
         marker.detectContours();
 
         // Publish the found coordinates.
-        reference_pub_.publish(marker.coordinates_msg);
+        if (marker.coordinates_msg.x != 0.0 && marker.coordinates_msg.y != 0.0 && marker.coordinates_msg.z != 0.0) {
+          reference_pub_.publish(marker.coordinates_msg);
+        }
+
 
       }
       catch (cv_bridge::Exception& e)
