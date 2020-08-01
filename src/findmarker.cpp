@@ -8,19 +8,36 @@
 #include "poseEstimation.h"
 
 
-FindMarker::FindMarker(cv::Mat image){
+FindMarker::FindMarker(cv::Mat image,	cv::Mat camMatrix, cv::Mat distCoeffs){
   _image = image;
+  dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+
+  // Matrix that values camera intrinsics
+  cameraMatrix = camMatrix;
+
+  // Matrix that values distortion coefficients
+  distortionCoeffs = distCoeffs;
+
 }
 
 FindMarker::~FindMarker(){
 }
 
+
+
 void FindMarker::detectContours(){
 
   cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
 
+  std::vector<int> test_ids;
+  std::vector<std::vector<cv::Point2f>> test_corners;
+  cv::aruco::detectMarkers(_image, dictionary, test_corners, test_ids);
 
-  dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+  if (test_ids.size() > 0) {
+    cv::aruco::drawDetectedMarkers(_image, test_corners, test_ids);
+    std::cout << test_corners.size() << std::endl;
+    //ROS_INFO("marker with IDs: %f detected.", ids);
+  }
   //dictionary = new aruco::Dictionary(bits, bits, marker_size, correction_bit);
   //dictionary = cv::aruco::generateCustomDictionary(36, 5);
 
@@ -485,6 +502,44 @@ void FindMarker::setReferenzPoints(){
   set2Points[0].x = 5.5;  set2Points[0].y = 5.5;
   set2Points[0].x = 5.5;  set2Points[0].y = -0.5;
 }
+
+void FindMarker::setSingleReferenzPoints(float markerLength, std::vector<cv::Point3f> &c_point){
+  /**
+    The function set and returns center points for a single marker using the length of a marker.
+    :params markerLength: float number that gives the length of a detected marker in outside world (fixed).
+    :params c_point: center point.
+    */
+
+  // setting coordinate system in the middle of the marker.
+  c_point.clear();
+  c_point.push_back(cv::Vec3f(-markerLength / 2.f, markerLength / 2.f, 0));
+  c_point.push_back(cv::Vec3f( markerLength / 2.f, markerLength / 2.f, 0));
+  c_point.push_back(cv::Vec3f( markerLength / 2.f,-markerLength / 2.f, 0));
+  c_point.push_back(cv::Vec3f(-markerLength / 2.f,-markerLength / 2.f, 0));
+}
+
+
+void FindMarker::estimateMarkerPose(const std::vector<int> &ids, const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
+                                    const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
+                                    std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs){
+  /**
+    Function estimates the pose of a single Marker in regard to the camera. This is done for every marker found in image.
+    :params ids: vector of the marker IDs found in the image.
+    :params corners: vector that contains a corner point of each marker found in image.
+    :params markerLength: float number that gives the length of a detected marker in outside world (fixed).
+    */
+  CV_Assert(markerLength > 0);
+
+  int n_marker = (int)corners.size();
+  std::vector<cv::Point3f> objPoints;
+
+  for (int i = 0; i < n_marker; i++) {
+    setSingleReferenzPoints(markerLength, objPoints);
+    cv::solvePnP(objPoints, corners[i], cameraMatrix, distCoeffs, rvecs[i], tvecs[i]);
+  }
+
+}
+
 
 /*
 void FindMarker::identifyMarker(){

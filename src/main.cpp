@@ -23,7 +23,7 @@ class ReferenceFinder {
   public:
 
     ReferenceFinder(const ros::Publisher& pub) : reference_pub_(pub){
-
+      haveCamInfo = false;
     }
 
     void imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -36,7 +36,7 @@ class ReferenceFinder {
         cv::Mat grayScale;
   		  cv::Mat filtered = rgb_img.clone();
 
-        FindMarker marker(filtered);
+        FindMarker marker(filtered, cameraMatrix, distortionCoeffs);
         marker.detectContours();
 
         // Publish the found coordinates.
@@ -51,8 +51,41 @@ class ReferenceFinder {
         ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
       }
     }
+
+    void camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg){
+        /**
+          Subscribing the camera info, created by calibration process.
+          */
+        if (haveCamInfo) {
+            return;
+        }
+
+        if (msg->K != boost::array<double, 9>({0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0})) {
+            for (int i=0; i<3; i++) {
+                for (int j=0; j<3; j++) {
+                    cameraMatrix.at<double>(i, j) = msg->K[i*3+j];
+                }
+            }
+
+            for (int i=0; i<5; i++) {
+                distortionCoeffs.at<double>(0,i) = msg->D[i];
+            }
+
+            haveCamInfo = true;
+            //frameId = msg->header.frame_id;
+        }
+        else {
+            ROS_WARN("%s", "CameraInfo message has invalid intrinsics, K matrix all zeros");
+        }
+    }
+
   private:
     ros::Publisher reference_pub_;
+
+    bool haveCamInfo;
+    cv::Mat cameraMatrix = cv::Mat::zeros(3, 3, CV_64F);
+    cv::Mat distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
+
 };
 
 
@@ -73,6 +106,9 @@ int main(int argc, char** argv)
   // Subscriber section
 	cv::namedWindow("view");
   cv::startWindowThread();
+
+  ros::Subscriber caminfo_sub = nh.subscribe("/usb_cam/camera_info", 1, &ReferenceFinder::camInfoCallback, &ref);
+
   image_transport::ImageTransport it(nh);
   image_transport::Subscriber sub = it.subscribe("/usb_cam/image_raw", 1, &ReferenceFinder::imageCallback, &ref);
 

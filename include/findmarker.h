@@ -18,6 +18,7 @@
 #include "opencv2/aruco.hpp"
 
 #include <geometry_msgs/Point.h>
+#include <sensor_msgs/image_encodings.h>
 
 
 struct Stripe {
@@ -32,7 +33,7 @@ struct Stripe {
 class FindMarker {
 
   public:
-    FindMarker(cv::Mat image);
+    FindMarker(cv::Mat image, cv::Mat camMatrix, cv::Mat distCoeffs);
     ~FindMarker();
 
     void detectContours();
@@ -47,8 +48,18 @@ class FindMarker {
 		void computeIntersection();
 		void setReferenzPoints();
 
+		void estimateMarkerPose(const std::vector<int> &ids,
+														const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
+														const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
+														std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs);
+
+		void setSingleReferenzPoints(float markerLength, std::vector<cv::Point3f> &c_point);
+
     cv::Mat _image;
     cv::Mat grayScale;
+		cv::Mat cameraMatrix;
+    cv::Mat distortionCoeffs;
+
 		Stripe stripe;
 		cv::Point2f corners[4];
 		cv::Point2f set2Points[4];
