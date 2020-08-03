@@ -9,37 +9,82 @@
 
 
 FindMarker::FindMarker(cv::Mat image,	cv::Mat camMatrix, cv::Mat distCoeffs){
-  _image = image;
-  dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+  this->_image = image;
+  this->dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
 
   // Matrix that values camera intrinsics
-  cameraMatrix = camMatrix;
+  this->cameraMatrix = camMatrix;
 
   // Matrix that values distortion coefficients
-  distortionCoeffs = distCoeffs;
-
+  this->distortionCoeffs = distCoeffs;
 }
 
 FindMarker::~FindMarker(){
 }
 
 
-
 void FindMarker::detectContours(){
 
   cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
 
-  std::vector<int> test_ids;
+  std::vector<int> ids;
   std::vector<std::vector<cv::Point2f>> test_corners;
-  cv::aruco::detectMarkers(_image, dictionary, test_corners, test_ids);
 
-  if (test_ids.size() > 0) {
-    cv::aruco::drawDetectedMarkers(_image, test_corners, test_ids);
-    std::cout << test_corners.size() << std::endl;
-    //ROS_INFO("marker with IDs: %f detected.", ids);
+
+  cv::aruco::detectMarkers(_image, dictionary, test_corners, ids);
+
+  if (ids.size() > 0) {
+    cv::aruco::drawDetectedMarkers(_image, test_corners, ids);
   }
-  //dictionary = new aruco::Dictionary(bits, bits, marker_size, correction_bit);
-  //dictionary = cv::aruco::generateCustomDictionary(36, 5);
+
+  // Find pose estimation.
+  std::vector <double> projError;
+  estimateMarkerPose(ids, test_corners, markerSize, cameraMatrix, distortionCoeffs, rvecs, tvecs, projError);
+  double tmp_dist = 0.0;
+
+
+  for (size_t i=0; i < ids.size(); i++) {
+
+    if (ids[i] == 10 || ids[i] == 50 || ids[i] == 100) {
+      point_vector.reserve(ids.size());
+
+      cv::aruco::drawAxis(_image, cameraMatrix, distortionCoeffs, rvecs[i], tvecs[i], 0.1);
+
+      ROS_INFO("Detected id %d T %.2f %.2f %.2f R %.2f %.2f %.2f", ids[i],
+                tvecs[i][0], tvecs[i][1], tvecs[i][2],
+                rvecs[i][0], rvecs[i][1], rvecs[i][2]);
+
+
+
+      double tmp_angle = norm(rvecs[i]);
+      cv::Vec3d axis = rvecs[i] / tmp_angle;
+      ROS_INFO("angle %f axis %f %f %f", tmp_angle, axis[0], axis[1], axis[2]);
+
+      point_vector[i].x = tvecs[i][0];
+      point_vector[i].y = tvecs[i][1];
+      point_vector[i].z = tvecs[i][2];
+
+      if (ids[i] == 10){
+        tmp_dist = dist3DtoCamera(point_vector[i]);
+        std::cout << "distance to Marker(10): " << point_vector[i] << std::endl;
+      }
+
+
+      tf2::Quaternion qq;
+      qq.setRotation(tf2::Vector3(axis[0], axis[1], axis[2]), tmp_angle);
+
+      q.w = qq.w();
+      q.x = qq.x();
+      q.y = qq.y();
+      q.z = qq.z();
+
+      pose.orientation = q;
+      pose.position.x = test_corners[i][0].x - camera_resolution_x * 0.5;;
+      //pose.position.x = tvecs[i][0];
+      pose.position.y = tvecs[i][1];
+      //pose.position.z = tvecs[i][2];
+    }
+  }
 
   cv::cvtColor(_image, _image, cv::COLOR_BGR2RGB);
   //std::cout << "Image channels after BGR2RGB: " << _image.channels() << std::endl;
@@ -521,28 +566,105 @@ void FindMarker::setSingleReferenzPoints(float markerLength, std::vector<cv::Poi
 
 void FindMarker::estimateMarkerPose(const std::vector<int> &ids, const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
                                     const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
-                                    std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs){
+                                    std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs, std::vector<double>& projErr){
   /**
     Function estimates the pose of a single Marker in regard to the camera. This is done for every marker found in image.
     :params ids: vector of the marker IDs found in the image.
     :params corners: vector that contains a corner point of each marker found in image.
     :params markerLength: float number that gives the length of a detected marker in outside world (fixed).
+    :params cameraMatrix: camera matrix that is set by calibration.
+    :params distCoeffs: distortion coefficients set by calibration.
+    :params rvecs: rotation vector
+    :params tvecs: translation vector
     */
   CV_Assert(markerLength > 0);
 
   int n_marker = (int)corners.size();
   std::vector<cv::Point3f> objPoints;
+  rvecs.reserve(n_marker);
+  tvecs.reserve(n_marker);
+  projErr.reserve(n_marker);
 
   for (int i = 0; i < n_marker; i++) {
     setSingleReferenzPoints(markerLength, objPoints);
     cv::solvePnP(objPoints, corners[i], cameraMatrix, distCoeffs, rvecs[i], tvecs[i]);
+
+    projErr[i] = getReprojectionError(objPoints, corners[i], cameraMatrix, distCoeffs, rvecs[i], tvecs[i]);
+
   }
 
 }
 
 
-/*
-void FindMarker::identifyMarker(){
+double FindMarker::getReprojectionError(const std::vector<cv::Point3f> &objPoints, const std::vector<cv::Point2f> &imagePoints,
+                                        const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs, const cv::Vec3d &rvec, const cv::Vec3d &tvec) {
+    /**
+      The function estimates the reprojection error by using RMS.
+      :params objPoints:
+      :params imagePoints:
+      :params cameraMatrix: camera matrix that is set by calibration.
+      :params distCoeffs: distortion coefficients set by calibration.
+      :params rvecs: rotation vector
+      :params tvecs: translation vector
+      */
 
+    std::vector<cv::Point2f> projectedPoints;
+
+    cv::projectPoints(objPoints, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
+
+    double totalError = 0.0;
+    for (unsigned int i=0; i < objPoints.size(); i++) {
+        double error = dist2D(imagePoints[i], projectedPoints[i]);
+        totalError += error * error;
+    }
+
+    return totalError / (double)objPoints.size();
 }
-*/
+
+double FindMarker::dist2D(const cv::Point2f &p1, const cv::Point2f &p2) {
+  /**
+    Euclidean distance between two points for 2D.
+    :params p1: 2D point in space.
+    :params p2: 2D point in space.
+    :Returns: Euclidean
+    */
+    double x1 = p1.x;
+    double y1 = p1.y;
+    double x2 = p2.x;
+    double y2 = p2.y;
+
+    double dx = x1 - x2;
+    double dy = y1 - y2;
+
+    return sqrt(dx*dx + dy*dy);
+}
+
+double FindMarker::dist3D(const cv::Point3f &p1, const cv::Point3f &p2) {
+  /**
+    Euclidean distance between two points for 3D.
+    :params p1: 3D point in space.
+    :params p2: 3D point in space.
+    :Returns: Euclidean
+    */
+    double x1 = p1.x;
+    double y1 = p1.y;
+    double z1 = p1.z;
+    double x2 = p2.x;
+    double y2 = p2.y;
+    double z2 = p2.z;
+
+    double dx = x1 - x2;
+    double dy = y1 - y2;
+    double dz = z1 - z2;
+
+    return sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+double FindMarker::dist3DtoCamera(const cv::Point3f &p) {
+  /**
+    Euclidean distance between a point in regard to the camera for 3D.
+    :params p: 3D point in space.
+    :Returns: Euclidean
+    */
+    return sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
+}

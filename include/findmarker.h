@@ -20,6 +20,8 @@
 #include <geometry_msgs/Point.h>
 #include <sensor_msgs/image_encodings.h>
 
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 
 struct Stripe {
 	int stripeLength;
@@ -40,6 +42,9 @@ class FindMarker {
 
 		geometry_msgs::Point coordinates_msg;
 
+		geometry_msgs::Pose pose;
+		geometry_msgs::Quaternion q;
+
   private:
 
     int subpixSampleSafe(const cv::Mat& pSrc, const cv::Point2f& p);
@@ -51,7 +56,10 @@ class FindMarker {
 		void estimateMarkerPose(const std::vector<int> &ids,
 														const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
 														const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
-														std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs);
+														std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs, std::vector<double>& projErr);
+
+		double getReprojectionError(const std::vector<cv::Point3f> &objPoints, const std::vector<cv::Point2f> &imagePoints,
+		                            const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs, const cv::Vec3d &rvec, const cv::Vec3d &tvec);
 
 		void setSingleReferenzPoints(float markerLength, std::vector<cv::Point3f> &c_point);
 
@@ -59,6 +67,9 @@ class FindMarker {
     cv::Mat grayScale;
 		cv::Mat cameraMatrix;
     cv::Mat distortionCoeffs;
+		std::vector<cv::Vec3d> rvecs;
+		std::vector<cv::Vec3d> tvecs;
+		std::vector<cv::Point3f> point_vector;
 
 		Stripe stripe;
 		cv::Point2f corners[4];
@@ -81,7 +92,13 @@ class FindMarker {
 		int camera_resolution_x = 640;
 		int camera_resolution_y = 480;
 
+		const float markerSize = 0.06f;
+
 		cv::Ptr<cv::aruco::Dictionary> dictionary;
+
+		double dist2D(const cv::Point2f &p1, const cv::Point2f &p2);
+		double dist3D(const cv::Point3f &p1, const cv::Point3f &p2);
+		double dist3DtoCamera(const cv::Point3f &p);
 
 };
 

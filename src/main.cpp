@@ -24,6 +24,8 @@ class ReferenceFinder {
 
     ReferenceFinder(const ros::Publisher& pub) : reference_pub_(pub){
       haveCamInfo = false;
+      cameraMatrix = cv::Mat::zeros(3, 3, CV_64F);
+      distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
     }
 
     void imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -36,8 +38,11 @@ class ReferenceFinder {
         cv::Mat grayScale;
   		  cv::Mat filtered = rgb_img.clone();
 
+
         FindMarker marker(filtered, cameraMatrix, distortionCoeffs);
         marker.detectContours();
+
+        reference_pub_.publish(marker.pose);
 
         // Publish the found coordinates.
         if (marker.coordinates_msg.x != 0.0 && marker.coordinates_msg.y != 0.0 && marker.coordinates_msg.z != 0.0) {
@@ -56,6 +61,7 @@ class ReferenceFinder {
         /**
           Subscribing the camera info, created by calibration process.
           */
+
         if (haveCamInfo) {
             return;
         }
@@ -83,8 +89,8 @@ class ReferenceFinder {
     ros::Publisher reference_pub_;
 
     bool haveCamInfo;
-    cv::Mat cameraMatrix = cv::Mat::zeros(3, 3, CV_64F);
-    cv::Mat distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
+    cv::Mat cameraMatrix;
+    cv::Mat distortionCoeffs;
 
 };
 
@@ -99,7 +105,8 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh;
 
   // Publisher section
-  ros::Publisher pub = nh.advertise<geometry_msgs::Point>("coordinates", 100);
+  //ros::Publisher pub = nh.advertise<geometry_msgs::Point>("coordinates", 100);
+  ros::Publisher pub = nh.advertise<geometry_msgs::Pose>("coordinates", 100);
 
   ReferenceFinder ref(pub);
 

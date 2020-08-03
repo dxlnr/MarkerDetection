@@ -10,6 +10,7 @@ to run the package/node:
 	$ cd ~/catkin_ws/
 	$ source ./devel/setup.bash (update the environment)
 	$ roslaunch marker_detection camera_start.launch (start camera)
+	$ roslaunch pylon_camera pylon_camera_node.launch
 	$ rosrun marker_detection marker_detection
 
 
