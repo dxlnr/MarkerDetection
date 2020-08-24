@@ -28,6 +28,7 @@ project(marker_detection)
 add_message_files(
    FILES
    reference.msg
+   MarkerVertices.msg
  )
 
 generate_messages(

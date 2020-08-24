@@ -14,7 +14,6 @@
 
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
-#include <geometry_msgs/Point.h>
 
 #include "findmarker.h"
 
@@ -26,6 +25,11 @@ class ReferenceFinder {
       haveCamInfo = false;
       cameraMatrix = cv::Mat::zeros(3, 3, CV_64F);
       distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
+      img_height = 0;
+      img_width = 0;
+      haveCamInfo = false;
+      
+      setDetectorParameters();
     }
 
     void imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -33,22 +37,17 @@ class ReferenceFinder {
       try
       {
 
-        cv::Mat rgb_img = cv_bridge::toCvShare(msg) -> image;
+        //cv::Mat rgb_img = cv_bridge::toCvShare(msg) -> image;
+        cv::Mat rgb_img = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8) -> image;
 
         cv::Mat grayScale;
   		  cv::Mat filtered = rgb_img.clone();
 
 
-        FindMarker marker(filtered, cameraMatrix, distortionCoeffs);
+        FindMarker marker(filtered, cameraMatrix, distortionCoeffs, params, img_height, img_width, haveCamInfo);
         marker.detectContours();
 
-        reference_pub_.publish(marker.pose);
-
-        // Publish the found coordinates.
-        if (marker.coordinates_msg.x != 0.0 && marker.coordinates_msg.y != 0.0 && marker.coordinates_msg.z != 0.0) {
-          reference_pub_.publish(marker.coordinates_msg);
-        }
-
+        reference_pub_.publish(marker.ref);
 
       }
       catch (cv_bridge::Exception& e)
@@ -78,6 +77,8 @@ class ReferenceFinder {
             }
 
             haveCamInfo = true;
+            img_height = msg->height;
+            img_width = msg->width;
             //frameId = msg->header.frame_id;
         }
         else {
@@ -85,12 +86,27 @@ class ReferenceFinder {
         }
     }
 
+    void setDetectorParameters() {
+      /**
+        This function sets the detector parameters. 
+        Firstly, the default is set and if wanted changes can be done here.
+        */
+      this -> params = cv::aruco::DetectorParameters::create();
+
+      params -> doCornerRefinement = true;
+
+    }
+
   private:
     ros::Publisher reference_pub_;
 
     bool haveCamInfo;
+    int img_height;
+    int img_width;
+
     cv::Mat cameraMatrix;
     cv::Mat distortionCoeffs;
+    cv::Ptr<cv::aruco::DetectorParameters> params;
 
 };
 
@@ -105,19 +121,13 @@ int main(int argc, char** argv)
 	ros::NodeHandle nh;
 
   // Publisher section
-  //ros::Publisher pub = nh.advertise<geometry_msgs::Point>("coordinates", 100);
-  ros::Publisher pub = nh.advertise<geometry_msgs::Pose>("coordinates", 100);
-
+  ros::Publisher pub = nh.advertise<marker_detection::reference>("coordinates", 10);
   ReferenceFinder ref(pub);
 
-  // Subscriber section
-	cv::namedWindow("view");
-  cv::startWindowThread();
-
-  ros::Subscriber caminfo_sub = nh.subscribe("/usb_cam/camera_info", 1, &ReferenceFinder::camInfoCallback, &ref);
+  ros::Subscriber caminfo_sub = nh.subscribe("/pylon_camera_node/camera_info", 1, &ReferenceFinder::camInfoCallback, &ref);
 
   image_transport::ImageTransport it(nh);
-  image_transport::Subscriber sub = it.subscribe("/usb_cam/image_raw", 1, &ReferenceFinder::imageCallback, &ref);
+  image_transport::Subscriber sub = it.subscribe("/pylon_camera_node/image_rect", 1, &ReferenceFinder::imageCallback, &ref);
 
   ros::spin();
   return 0;

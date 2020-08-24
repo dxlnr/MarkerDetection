@@ -9,17 +9,18 @@
 
 #include <iostream>
 #include <ros/ros.h>
-
 #include <stdio.h>
+#include <cmath>
+
 #include <opencv2/opencv.hpp>
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
-
 #include "opencv2/aruco.hpp"
 
 #include <geometry_msgs/Point.h>
 #include <sensor_msgs/image_encodings.h>
-
+#include <marker_detection/MarkerVertices.h>
+#include <marker_detection/reference.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 
@@ -35,70 +36,60 @@ struct Stripe {
 class FindMarker {
 
   public:
-    FindMarker(cv::Mat image, cv::Mat camMatrix, cv::Mat distCoeffs);
+  	FindMarker(cv::Mat image, cv::Mat camMatrix, cv::Mat distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params,
+	  		   int img_height, int img_width, bool haveCamInfo);
     ~FindMarker();
 
     void detectContours();
 
-		geometry_msgs::Point coordinates_msg;
-
-		geometry_msgs::Pose pose;
-		geometry_msgs::Quaternion q;
+	marker_detection::reference ref;
 
   private:
 
     int subpixSampleSafe(const cv::Mat& pSrc, const cv::Point2f& p);
     cv::Mat calculate_Stripe(double dx, double dy, Stripe & st);
 
-		void computeIntersection();
-		void setReferenzPoints();
+	void computeIntersection(float lineParams[16]);
+	void setReferenzPoints();
 
-		void estimateMarkerPose(const std::vector<int> &ids,
-														const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
-														const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
-														std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs, std::vector<double>& projErr);
+	void estimateMarkerPose(const std::vector<int> &ids,
+							const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
+							const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
+							std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs, std::vector<double>& projErr);
+	
+	double getReprojectionError(const std::vector<cv::Point3f> &objPoints, const std::vector<cv::Point2f> &imagePoints,
+                             	const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs, const cv::Vec3d &rvec, const cv::Vec3d &tvec);
 
-		double getReprojectionError(const std::vector<cv::Point3f> &objPoints, const std::vector<cv::Point2f> &imagePoints,
-		                            const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs, const cv::Vec3d &rvec, const cv::Vec3d &tvec);
-
-		void setSingleReferenzPoints(float markerLength, std::vector<cv::Point3f> &c_point);
+	void setSingleReferenzPoints(float markerLength, std::vector<cv::Point3f> &c_point);
 
     cv::Mat _image;
     cv::Mat grayScale;
-		cv::Mat cameraMatrix;
+	cv::Mat cameraMatrix;
     cv::Mat distortionCoeffs;
-		std::vector<cv::Vec3d> rvecs;
-		std::vector<cv::Vec3d> tvecs;
-		std::vector<cv::Point3f> point_vector;
+	std::vector<cv::Vec3d> rvecs;
+	std::vector<cv::Vec3d> tvecs;
 
-		Stripe stripe;
-		cv::Point2f corners[4];
-		cv::Point2f set2Points[4];
+	Stripe stripe;
+	cv::Point2f fcorners[4];
+	cv::Point2f set2Points[4];
 
-		cv::Point pt;
-		cv::Point pt1;
-		cv::Point pt2;
+	
+	// Important values
+	int camera_resolution_x;
+	int camera_resolution_y;
+	bool haveCamInfo;
 
-		float lineParams[16]; // Direction vector (x0,y0) and contained point (x1,y1) -> For each line -> 4x4 = 16
+	const float markerSize = 0.1f;
 
-    // List of points
-    typedef std::vector<cv::Point> contour_typ;
-    // List of contours
-    typedef std::vector<contour_typ> contour_vector_typ;
+	cv::Ptr<cv::aruco::Dictionary> dictionary;
+	cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
 
-		// Important values
-    int thickness_value = 4;
-    int threshold_value = 160;
-		int camera_resolution_x = 640;
-		int camera_resolution_y = 480;
-
-		const float markerSize = 0.06f;
-
-		cv::Ptr<cv::aruco::Dictionary> dictionary;
-
-		double dist2D(const cv::Point2f &p1, const cv::Point2f &p2);
-		double dist3D(const cv::Point3f &p1, const cv::Point3f &p2);
-		double dist3DtoCamera(const cv::Point3f &p);
+	double dist2D(const cv::Point2f &p1, const cv::Point2f &p2);
+	double dist3D(const cv::Point3f &p1, const cv::Point3f &p2);
+	double dist3DtoCamera(const cv::Point3f &p);
+	double calcMarkerArea(const std::vector<cv::Point2f> &pts);
+	double calcAngleX(const cv::Point2f &p1, const cv::Point2f &p2);
+	double calcAngleXAvg(std::vector<cv::Point2f> vpts1, std::vector<cv::Point2f> vpts2) ;
 
 };
 

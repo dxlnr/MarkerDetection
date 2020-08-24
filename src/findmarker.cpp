@@ -8,15 +8,26 @@
 #include "poseEstimation.h"
 
 
-FindMarker::FindMarker(cv::Mat image,	cv::Mat camMatrix, cv::Mat distCoeffs){
-  this->_image = image;
-  this->dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+FindMarker::FindMarker(cv::Mat image,	cv::Mat camMatrix, cv::Mat distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params, 
+                       int img_height, int img_width, bool haveCamInfo) {
+  this -> _image = image;
+  this -> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+
+  //Check if camera is calibrated.
+  this -> haveCamInfo = haveCamInfo;
 
   // Matrix that values camera intrinsics
-  this->cameraMatrix = camMatrix;
+  this -> cameraMatrix = camMatrix;
 
   // Matrix that values distortion coefficients
-  this->distortionCoeffs = distCoeffs;
+  this -> distortionCoeffs = distCoeffs;
+
+  // Set the special parameters for detecting the aruco markers.
+  this -> detectorParams = params;
+
+  // Receive resolution.
+  this -> camera_resolution_x = img_width;
+  this -> camera_resolution_y = img_height;
 }
 
 FindMarker::~FindMarker(){
@@ -25,405 +36,79 @@ FindMarker::~FindMarker(){
 
 void FindMarker::detectContours(){
 
-  cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
+  if (!haveCamInfo) {
+    ROS_ERROR("No camera intrinsics");
+    return;
+  }
 
   std::vector<int> ids;
-  std::vector<std::vector<cv::Point2f>> test_corners;
+  std::vector<std::vector<cv::Point2f>> corners;
+  std::vector<std::vector<cv::Point2f>> rejectedCandidates;
 
+  cv::aruco::detectMarkers(_image, dictionary, corners, ids, detectorParams, rejectedCandidates);
 
-  cv::aruco::detectMarkers(_image, dictionary, test_corners, ids);
+  for (size_t i=0; i<ids.size(); i++) {
+	    
+    marker_detection::MarkerVertices mv;
+    mv.marker_id = ids[i];
+
+    mv.x0 = corners[i][0].x;
+    mv.y0 = corners[i][0].y;
+    mv.x1 = corners[i][1].x;
+    mv.y1 = corners[i][1].y;
+    mv.x2 = corners[i][2].x;
+    mv.y2 = corners[i][2].y;
+    mv.x3 = corners[i][3].x;
+    mv.y3 = corners[i][3].y;
+  }
 
   if (ids.size() > 0) {
-    cv::aruco::drawDetectedMarkers(_image, test_corners, ids);
+    cv::aruco::drawDetectedMarkers(_image, corners, ids);
   }
 
   // Find pose estimation.
   std::vector <double> projError;
-  estimateMarkerPose(ids, test_corners, markerSize, cameraMatrix, distortionCoeffs, rvecs, tvecs, projError);
-  double tmp_dist = 0.0;
+  estimateMarkerPose(ids, corners, markerSize, cameraMatrix, distortionCoeffs, rvecs, tvecs, projError);
 
+  cv::Point2f pt10;
+  cv::Point2f pt50;
 
   for (size_t i=0; i < ids.size(); i++) {
+	  
+	  if (ids[i] == 10 || ids[i] == 50 || ids[i] == 100) {
+	    cv::aruco::drawAxis(_image, cameraMatrix, distortionCoeffs, rvecs[i], tvecs[i], 0.1);
 
-    if (ids[i] == 10 || ids[i] == 50 || ids[i] == 100) {
-      point_vector.reserve(ids.size());
+	    ROS_INFO("Detected id %d T %.2f %.2f %.2f R %.2f %.2f %.2f", ids[i],
+		      tvecs[i][0], tvecs[i][1], tvecs[i][2],
+		      rvecs[i][0], rvecs[i][1], rvecs[i][2]);
 
-      cv::aruco::drawAxis(_image, cameraMatrix, distortionCoeffs, rvecs[i], tvecs[i], 0.1);
+      if (ids[i] == 10) {
+        ref.tx = tvecs[i][0];
+	      ref.ty = tvecs[i][1];
+	      ref.tz = tvecs[i][2];
 
-      ROS_INFO("Detected id %d T %.2f %.2f %.2f R %.2f %.2f %.2f", ids[i],
-                tvecs[i][0], tvecs[i][1], tvecs[i][2],
-                rvecs[i][0], rvecs[i][1], rvecs[i][2]);
+        ref.rx = rvecs[i][0];
+        ref.ry = rvecs[i][1];
+        ref.rz = rvecs[i][2];
 
+        pt10.x = tvecs[i][0];
+        pt10.y = tvecs[i][1];
 
-
-      double tmp_angle = norm(rvecs[i]);
-      cv::Vec3d axis = rvecs[i] / tmp_angle;
-      ROS_INFO("angle %f axis %f %f %f", tmp_angle, axis[0], axis[1], axis[2]);
-
-      point_vector[i].x = tvecs[i][0];
-      point_vector[i].y = tvecs[i][1];
-      point_vector[i].z = tvecs[i][2];
-
-      if (ids[i] == 10){
-        tmp_dist = dist3DtoCamera(point_vector[i]);
-        std::cout << "distance to Marker(10): " << point_vector[i] << std::endl;
       }
 
+      if (ids[i] == 50) {
+        pt50.x = tvecs[i][0];
+        pt50.y = tvecs[i][1];
+      }
 
-      tf2::Quaternion qq;
-      qq.setRotation(tf2::Vector3(axis[0], axis[1], axis[2]), tmp_angle);
-
-      q.w = qq.w();
-      q.x = qq.x();
-      q.y = qq.y();
-      q.z = qq.z();
-
-      pose.orientation = q;
-      pose.position.x = test_corners[i][0].x - camera_resolution_x * 0.5;;
-      //pose.position.x = tvecs[i][0];
-      pose.position.y = tvecs[i][1];
-      //pose.position.z = tvecs[i][2];
     }
   }
 
-  cv::cvtColor(_image, _image, cv::COLOR_BGR2RGB);
-  //std::cout << "Image channels after BGR2RGB: " << _image.channels() << std::endl;
-  //std::cout << "image = " << std::endl << " " << _image << std::endl << std::endl;
-
-  //std::vector<int> ids;
-  //std::vector<std::vector<cv::Point2f> > test_corners;
-  //cv::aruco::detectMarkers(_image, dictionary, test_corners, ids);
-
-  //cv::aruco::drawDetectedMarkers(_image, test_corners, ids);
-
-  /// Converting to grayscale
-  cv::cvtColor(_image, grayScale, cv::COLOR_BGR2GRAY);
-
-  ///Thresholding and converting to binary
-  cv::threshold(grayScale, grayScale, threshold_value, 255, cv::THRESH_BINARY);
-
-  cv::Mat test = grayScale;
-  //std::cout << "Test = " << std::endl << " "  << grayScale << std::endl << std::endl;
-
-  /// Finding contours in the image.
-  contour_vector_typ contours;
-  cv::findContours(grayScale, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
-
-  bool isFirstStripe = true;
-  bool isFirstMarker = true;
-
-  for (size_t k = 0; k < contours.size(); k++)
-  {
-
-    // -------------------------------------------------
-    contour_typ approx_contour;
-    // Simplifying of the contour with the Ramer-Douglas-Peuker Algorithm
-    cv::approxPolyDP(contours[k], approx_contour, arcLength(contours[k], true) * 0.02, true);
-
-    cv::Scalar QUADRILATERAL_COLOR(0, 0, 255);
-    cv::Scalar colour;
-
-    cv::Rect r = cv::boundingRect(approx_contour);
-
-    if (approx_contour.size() == 4) {
-      colour = QUADRILATERAL_COLOR;
-    }
-    else {
-      continue;
-    }
-
-    if (r.height < 20 || r.width < 20 || r.width > _image.cols - 10 || r.height > _image.rows - 10) {
-      continue;
-    }
-
-    //cv::polylines(_image, approx_contour, true, colour, thickness_value);
-
-    //float lineParams[16];
-    cv::Mat lineParamsMat(cv::Size(4, 4), CV_32F, lineParams);
-
-    // --- Process Corners ---
-    for (size_t i = 0; i < approx_contour.size(); i++) {
-      // Iterate through every line of every rectangle and try to find the corner points.
-      //cv::circle(_image, approx_contour[i], 3, CV_RGB(255, 255, 0), -1);
-
-      double dx = ((double)approx_contour[(i + 1) % 4].x - (double)approx_contour[i].x) / 7.0;
-      double dy = ((double)approx_contour[(i + 1) % 4].y - (double)approx_contour[i].y) / 7.0;
-
-      cv::Mat iplStripe = calculate_Stripe(dx, dy, stripe);
-
-      cv::Point2f points[6];
-
-      for (size_t j = 0; j < 7; j++){
-
-        // Position calculation
-        double px = (double)approx_contour[i].x + (double)j * dx;
-        double py = (double)approx_contour[i].y + (double)j * dy;
-
-        cv::Point p;
-        p.x = (int)px;
-        p.y = (int)py;
-        //cv::circle(_image, p, 2, CV_RGB(0, 255, 255), -1);
-
-        // Compute Stripes of every point on one side of the rectangle.
-        for (int m = -1; m <= 1; m++){
-          for (int n = stripe.nStart; n <= stripe.nStop; n++){
-            cv::Point2f subPixel;
-            subPixel.x = (double)p.x + ((double)m * stripe.stripeVecX.x) + ((double)n * stripe.stripeVecY.x);
-            subPixel.y = (double)p.y + ((double)m * stripe.stripeVecX.y) + ((double)n * stripe.stripeVecY.y);
-
-            int pixelInt = subpixSampleSafe(grayScale, subPixel);
-            // Converte from index to pixel coordinate.
-            int w = m + 1;
-            int h = n + (stripe.stripeLength >> 1);
-            iplStripe.at<uchar>(h,w) = (uchar)pixelInt;
-
-
-            cv::Point p2;
-            p2.x = (int)subPixel.x;
-            p2.y = (int)subPixel.y;
-
-          }
-        }
-
-        // Apply Sobel filter.
-
-        std::vector<double> sobelValues(stripe.stripeLength - 2.);
-
-        for (int l = 1; l < (stripe.stripeLength - 1); l++) {
-          // Take the intensity value from the stripe
-          unsigned char* stripePtr = &(iplStripe.at<uchar>(l - 1, 0));
-
-          // Calculation of the gradient with the sobel for the first row
-          double gr1 = -stripePtr[0] - 2. * stripePtr[1] - stripePtr[2];
-
-          // Jump two lines
-          stripePtr += 2 * iplStripe.step;
-
-          double gr3 = stripePtr[0] + 2. * stripePtr[1] + stripePtr[2];
-
-          unsigned int ti = l - 1;
-          sobelValues[ti] = gr1 + gr3;
-        }
-
-        double maxIntensity = -1;
-        int maxIntensityIndex = 0;
-
-        // Finding the max value
-        for (int o = 0; o < stripe.stripeLength - 2; o++) {
-          if (sobelValues[o] > maxIntensity) {
-            maxIntensity = sobelValues[o];
-            maxIntensityIndex = o;
-          }
-        }
-
-        double y0, y1, y2;
-        unsigned int max1 = maxIntensityIndex - 1;
-        unsigned int max2 = maxIntensityIndex + 1;
-
-        // If the index is at the border we are out of the stripe, than we will take 0
-        y0 = (maxIntensityIndex <= 0) ? 0 : sobelValues[max1];
-        y1 = sobelValues[maxIntensityIndex];
-        y2 = (maxIntensityIndex >= stripe.stripeLength - 3) ? 0 : sobelValues[max2];
-
-        // Formula for calculating the x-coordinate of the vertex of a parabola, given 3 points with equal distances
-        // (xv means the x value of the vertex, d the distance between the points):
-        // xv = x1 + (d / 2) * (y2 - y0)/(2*y1 - y0 - y2)
-
-        // d = 1 because of the normalization
-        double pos = (y2 - y0) / (4 * y1 - 2 * y0 - 2 * y2);
-
-        // Check if there is a solution to the calculation
-        if (pos != pos) {
-          continue;
-        }
-
-        // Exact point with subpixel accuracy
-        cv::Point2d edgeCenter;
-
-        int maxIndexShift = maxIntensityIndex - (stripe.stripeLength >> 1);
-
-        // Shift the original edgepoint accordingly
-        edgeCenter.x = (double)p.x + (((double)maxIndexShift + pos) * stripe.stripeVecY.x);
-        edgeCenter.y = (double)p.y + (((double)maxIndexShift + pos) * stripe.stripeVecY.y);
-
-        // Highlight the subpixel with blue color
-        //cv::circle(_image, edgeCenter, 2, CV_RGB(0, 200, 200), -1);
-
-        points[j - 1].x = edgeCenter.x;
-        points[j - 1].y = edgeCenter.y;
-      }
-
-
-      // lineParams is shared
-      cv::Mat point_mat(cv::Size(1, 6), CV_32FC2, points);
-      cv::fitLine (point_mat, lineParamsMat.col(i), cv::DIST_L2, 0, 0.01, 0.01 );
-
-      // Two points needed to draw the line.
-      //cv::Point pt1;
-			pt1.x = (int)lineParams[8 + i] - (int)(50.0 * lineParams[i]);
-			pt1.y = (int)lineParams[12 + i] - (int)(50.0 * lineParams[4 + i]);
-
-			//cv::Point pt2;
-			pt2.x = (int)lineParams[8 + i] + (int)(50.0 * lineParams[i]);
-			pt2.y = (int)lineParams[12 + i] + (int)(50.0 * lineParams[4 + i]);
-
-      cv::line(_image, pt1, pt2, CV_RGB(0, 255, 255), 1, 8, 0);
-
-    }
-
-    // Compute the intersection between two line segments & save the corner points.
-    computeIntersection();
-
-    //to get the matrix of perspective transform
-    setReferenzPoints();
-    cv::Mat projMat(cv::Size(3, 3), CV_32FC1);
-    projMat = cv::getPerspectiveTransform(corners, set2Points);
-
-    //create Marker Image
-    cv::Mat imageMarker(cv::Size(6, 6), CV_8UC1);
-    cv::warpPerspective(grayScale, imageMarker, projMat, cv::Size(6,6));
-
-    //threshold the marker image to get a B/W image
-    //cv::threshold(...)
-
-    // ### Identify the marker ###
-
-    int code = 0;
-		for (int i = 0; i < 6; ++i) {
-			// Check if border is black
-			int pixel1 = imageMarker.at<uchar>(0, i); //top
-			int pixel2 = imageMarker.at<uchar>(5, i); //bottom
-			int pixel3 = imageMarker.at<uchar>(i, 0); //left
-			int pixel4 = imageMarker.at<uchar>(i, 5); //right
-
-			// 0 -> black
-			if ((pixel1 > 0) || (pixel2 > 0) || (pixel3 > 0) || (pixel4 > 0)) {
-				code = -1;
-        break;
-			}
-		}
-
-		if (code < 0) {
-      continue;
-		}
-
-    //std::cout << "Found a marker." << std::endl;
-
-    int cP[4][4];
-		for (int i = 0; i < 4; ++i) {
-			for (int j = 0; j < 4; ++j) {
-				// +1 -> no borders!
-				cP[i][j] = imageMarker.at<uchar>(i + 1, j + 1);
-				// If black then 1 else 0
-				cP[i][j] = (cP[i][j] == 0) ? 1 : 0;
-			}
-		}
-
-		// Save the ID of the marker, for each side
-		int codes[4];
-		codes[0] = codes[1] = codes[2] = codes[3] = 0;
-
-    // Calculate the code from all sides at once
-		for (int i = 0; i < 16; i++) {
-			// /4 to go through the rows
-			int row = i >> 2;
-      int col = i % 4;
-
-			// Multiplied by 2 to check for black values -> 0*2 = 0
-			codes[0] <<= 1;
-			codes[0] |= cP[row][col]; // 0\B0
-
-			// 4x4 structure -> Each column represents one side
-			codes[1] <<= 1;
-			codes[1] |= cP[3 - col][row]; // 90\B0
-
-			codes[2] <<= 1;
-			codes[2] |= cP[3 - row][3 - col]; // 180\B0
-
-			codes[3] <<= 1;
-			codes[3] |= cP[col][3 - row]; // 270\B0
-		}
-
-    // Account for symmetry -> One side complete white or black
-		if ((codes[0] == 0) || (codes[0] == 0xffff)) {
-      continue;
-		}
-
-    int angle = 0;
-
-		// Search for the smallest marker ID
-		code = codes[0];
-		for (int i = 1; i < 4; ++i) {
-			if (codes[i] < code) {
-				code = codes[i];
-        angle = i;
-			}
-		}
-    std::cout << codes[0] << " " << codes[1] << " " << codes[2] << " " << codes[3] << std::endl;
-
-		// Print ID
-		printf("Found: %04x\n", code);
-    printf("Angle: %i\n", angle);
-
-
-    if (angle != 0) {
-      cv::Point2f corrected_corners[4];
-			// Smallest id represents the x-axis, we put the values in the corrected_corners array
-			for (int i = 0; i < 4; i++) {
-        corrected_corners[(i + angle) % 4] = corners[i];
-      }
-
-			// We put the values back in the array in the sorted order
-			for (int i = 0; i < 4; i++)	{
-        corners[i] = corrected_corners[i];
-      }
-		}
-
-
-		for (int i = 0; i < 4; i++) {
-			corners[i].x -= camera_resolution_x * 0.5;
-			// -(corners.y) -> is neeeded because y is inverted
-			corners[i].y = -corners[i].y + (camera_resolution_y * 0.5);
-		}
-
-		// 4x4 -> Rotation | Translation
-		//        0  0  0  | 1 -> (Homogene coordinates to combine rotation, translation and scaling)
-		float resultMatrix[16];
-		// Marker size in meters!
-		estimateSquarePose(resultMatrix, (cv::Point2f*)corners, 0.04346);
-
-		// This part is only for printing
-		for (int i = 0; i < 4; ++i) {
-			for (int j = 0; j < 4; ++j) {
-				std::cout << std::setw(6); // Total 6
-				std::cout << std::setprecision(4); // Numbers of decimal places = 4 (of the 6)
-
-				std::cout << resultMatrix[4 * i + j] << " ";
-			}
-			std::cout << "\n";
-		}
-		std::cout << "\n";
-		float x, y, z;
-		// Translation values in the transformation matrix to calculate the distance between the marker and the camera
-		x = resultMatrix[3];
-		y = resultMatrix[7];
-    z = resultMatrix[11];
-
-		// Euclidian distance
-		std::cout << "length: " << sqrt(x* x + y * y + z * z) << "\n";
-	  std::cout << "\n";
-
-    coordinates_msg.x = x;
-    coordinates_msg.y = y;
-    coordinates_msg.z = z;
-
-  }
-
+  //std::cout << "distance from 10 to 50: " << dist2D(pt10, pt50) << std::endl;
 
   // Putting the camera output on screen.
-  cv::namedWindow("view", cv::WINDOW_NORMAL);
-  cv::resizeWindow("view", 2560, 1980);
-  cv::imshow("view", _image);
+  cv::namedWindow("Pylon View", cv::WINDOW_NORMAL);
+  cv::imshow("Pylon View", _image);
   cv::waitKey(10);
 
 }
@@ -482,13 +167,8 @@ cv::Mat FindMarker::calculate_Stripe(double dx, double dy, Stripe & st) {
 	return cv::Mat(stripeSize, CV_8UC1);
 }
 
-/*
-void FindMarker::fittingLine(){
 
-}
-*/
-
-void FindMarker::computeIntersection() {
+void FindMarker::computeIntersection(float lineParams[16]) {
   /**
     Calculate the intersection points of both lines
     */
@@ -526,12 +206,12 @@ void FindMarker::computeIntersection() {
     b /= c;
 
     // Exact corner
-    corners[i].x = a;
-    corners[i].y = b;
+    fcorners[i].x = a;
+    fcorners[i].y = b;
 
-    //cv::Point pt;
-    pt.x = (int)corners[i].x;
-    pt.y = (int)corners[i].y;
+    cv::Point pt;
+    pt.x = (int)fcorners[i].x;
+    pt.y = (int)fcorners[i].y;
 
     cv::circle(_image, pt, 5, CV_RGB(0, 0, 255), -1);
   }
@@ -566,7 +246,7 @@ void FindMarker::setSingleReferenzPoints(float markerLength, std::vector<cv::Poi
 
 void FindMarker::estimateMarkerPose(const std::vector<int> &ids, const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
                                     const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
-                                    std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs, std::vector<double>& projErr){
+                                    std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs, std::vector<double> &projErr){
   /**
     Function estimates the pose of a single Marker in regard to the camera. This is done for every marker found in image.
     :params ids: vector of the marker IDs found in the image.
@@ -590,11 +270,9 @@ void FindMarker::estimateMarkerPose(const std::vector<int> &ids, const std::vect
     cv::solvePnP(objPoints, corners[i], cameraMatrix, distCoeffs, rvecs[i], tvecs[i]);
 
     projErr[i] = getReprojectionError(objPoints, corners[i], cameraMatrix, distCoeffs, rvecs[i], tvecs[i]);
-
   }
 
 }
-
 
 double FindMarker::getReprojectionError(const std::vector<cv::Point3f> &objPoints, const std::vector<cv::Point2f> &imagePoints,
                                         const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs, const cv::Vec3d &rvec, const cv::Vec3d &tvec) {
@@ -622,12 +300,11 @@ double FindMarker::getReprojectionError(const std::vector<cv::Point3f> &objPoint
 }
 
 double FindMarker::dist2D(const cv::Point2f &p1, const cv::Point2f &p2) {
-  /**
-    Euclidean distance between two points for 2D.
-    :params p1: 2D point in space.
-    :params p2: 2D point in space.
-    :Returns: Euclidean
-    */
+    /**
+      Euclidean distance between two points for 2D.
+      :params p1: 2D point in space.
+      :params p2: 2D point in space.
+      */
     double x1 = p1.x;
     double y1 = p1.y;
     double x2 = p2.x;
@@ -640,12 +317,11 @@ double FindMarker::dist2D(const cv::Point2f &p1, const cv::Point2f &p2) {
 }
 
 double FindMarker::dist3D(const cv::Point3f &p1, const cv::Point3f &p2) {
-  /**
-    Euclidean distance between two points for 3D.
-    :params p1: 3D point in space.
-    :params p2: 3D point in space.
-    :Returns: Euclidean
-    */
+    /**
+      Euclidean distance between two points for 3D.
+      :params p1: 3D point in space.
+      :params p2: 3D point in space.
+      */
     double x1 = p1.x;
     double y1 = p1.y;
     double z1 = p1.z;
@@ -661,10 +337,89 @@ double FindMarker::dist3D(const cv::Point3f &p1, const cv::Point3f &p2) {
 }
 
 double FindMarker::dist3DtoCamera(const cv::Point3f &p) {
-  /**
-    Euclidean distance between a point in regard to the camera for 3D.
-    :params p: 3D point in space.
-    :Returns: Euclidean
-    */
+    /**
+      Euclidean distance between a point for 3D in regard to camera.
+      :params p: 3D point specified by its coordinates x and y and z.
+      */
     return sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
 }
+
+double FindMarker::calcMarkerArea(const std::vector<cv::Point2f> &pts) {
+  /**
+    Calculate the area of a marker in the image. Herons formula is used.
+    :params pts: vector of 2D points specified by its coordinates x and y.
+    */
+    const cv::Point2f &p0 = pts.at(0);
+    const cv::Point2f &p1 = pts.at(1);
+    const cv::Point2f &p2 = pts.at(2);
+    const cv::Point2f &p3 = pts.at(3);
+
+    double a1 = dist2D(p0, p1);
+    double b1 = dist2D(p0, p3);
+    double c1 = dist2D(p1, p3);
+
+    double a2 = dist2D(p1, p2);
+    double b2 = dist2D(p2, p3);
+    double c2 = c1;
+
+    double s1 = (a1 + b1 + c1) / 2.0;
+    double s2 = (a2 + b2 + c2) / 2.0;
+
+    a1 = sqrt(s1*(s1-a1)*(s1-b1)*(s1-c1));
+    a2 = sqrt(s2*(s2-a2)*(s2-b2)*(s2-c2));
+    return (a1+a2);
+}
+
+
+double FindMarker::calcAngleX(const cv::Point2f &p1, const cv::Point2f &p2) {
+  /**
+    Calculate the angle between two points.
+    :params p1: 2D point in space.
+    :params p2: 2D point in space.
+    */
+    double hyp = sqrt((p1.x - p2.x)* (p1.x - p2.x));
+    double ops = sqrt((p1.y - p2.y)* (p1.y - p2.y));
+
+    return asin(ops / hyp);
+}
+
+double FindMarker::calcAngleXAvg(std::vector<cv::Point2f> vpts1, std::vector<cv::Point2f> vpts2) {
+  /**
+    Calculate the angle around the z-axis using the top two markers.
+    :params vpts1: vector of all the corner points.
+    :params vpts2: vector of all the corner points.
+    */
+
+  double tmp = 0.0;
+  // Angle between the 2 markers
+  for (size_t i=0; i < 2; i++) {
+    for (size_t n=0; n < 2; n++) {
+      tmp += calcAngleX(vpts1[i], vpts2[n]);
+    }
+  }
+
+  for (size_t i=2; i < 4; i++) {
+    for (size_t n=2; n < 4; n++) {
+      tmp += calcAngleX(vpts1[i], vpts2[n]);
+    }
+  }
+
+  //Angles within the markers
+  for (size_t i=0; i < 3; i+=2) {
+    tmp += calcAngleX(vpts1[i], vpts1[i+1]);
+    tmp += calcAngleX(vpts2[i], vpts2[i+1]);
+  }
+
+  return (tmp / 12);
+}
+
+cv::Mat GetWorldPoint(cv::Vec3d &rvecs){
+  /**
+    */
+    cv::Mat Rmat = cv::Mat::zeros(3, 3, CV_64F);
+    cv::Rodrigues(rvecs, Rmat);
+
+    return Rmat;
+}
+
+

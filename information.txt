@@ -78,5 +78,6 @@ http://wiki.ros.org/camera_calibration/Tutorials/MonocularCalibration
 	Running the Calibration Node
 		$ rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.108 image:=/camera/image_raw camera:=/camera
 		$ rosrun camera_calibration cameracalibrator.py --size 9x6 --square 0.03 image:=/usb_cam/image_raw camera:=/usb_cam
+		$ rosrun camera_calibration cameracalibrator.py --size 9x6 --square 0.03 image:=/pylon_camera_node/image_raw camera:=/pylon_camera_node
 	
 	
