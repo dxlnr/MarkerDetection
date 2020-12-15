@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   	     geometry_msgs
 	     sensor_msgs
 	     message_generation
+	     message_filters
   	     cv_bridge
   	     image_transport
   	     cmake_modules
@@ -42,7 +43,7 @@ generate_messages(
 catkin_package(
 	INCLUDE_DIRS include
 	LIBRARIES marker_detection
-	CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs message_runtime cv_bridge image_transport
+	CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs message_runtime message_filters cv_bridge image_transport
 	DEPENDS system_lib
         DEPENDS message_runtime std_msgs
 )

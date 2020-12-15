@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<launch>
+	<node name="MarkerDetection" pkg="marker_detection" type="marker_detection" output="screen" />
+	<include file="$(find usb_cam)/launch/usb_cam-test.launch" />
+	<include file="$(find pylon_camera)/launch/pylon_camera_node.launch" />
+	<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch" />
+</launch>

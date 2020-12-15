@@ -22,6 +22,7 @@
 #include <marker_detection/MarkerVertices.h>
 #include <marker_detection/reference.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <std_msgs/Float64MultiArray.h>
 
 
 struct Stripe {
@@ -43,6 +44,7 @@ class FindMarker {
     void detectContours();
 
 	marker_detection::reference ref;
+	std_msgs::Float64MultiArray transfm_msg;
 
   private:
 
@@ -78,8 +80,11 @@ class FindMarker {
 	int camera_resolution_x;
 	int camera_resolution_y;
 	bool haveCamInfo;
+	
+	cv::Mat rot_mat = cv::Mat::ones(cv::Size(3,3), CV_64F);
+	cv::Mat transformation_mat = cv::Mat::zeros(cv::Size(4,4), CV_64F);
 
-	const float markerSize = 0.1f;
+	const double markerSize = 0.2f;
 
 	cv::Ptr<cv::aruco::Dictionary> dictionary;
 	cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
@@ -90,6 +95,8 @@ class FindMarker {
 	double calcMarkerArea(const std::vector<cv::Point2f> &pts);
 	double calcAngleX(const cv::Point2f &p1, const cv::Point2f &p2);
 	double calcAngleXAvg(std::vector<cv::Point2f> vpts1, std::vector<cv::Point2f> vpts2) ;
+	cv::Mat GetWorldPoint(cv::Vec3d &rvecs);
+	cv::Mat DoubleMatFromVec3b(cv::Vec3d &input);
 
 };
 

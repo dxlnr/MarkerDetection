@@ -40,6 +40,8 @@ void FindMarker::detectContours(){
     ROS_ERROR("No camera intrinsics");
     return;
   }
+  
+  transfm_msg.data.resize(16);
 
   std::vector<int> ids;
   std::vector<std::vector<cv::Point2f>> corners;
@@ -70,8 +72,7 @@ void FindMarker::detectContours(){
   std::vector <double> projError;
   estimateMarkerPose(ids, corners, markerSize, cameraMatrix, distortionCoeffs, rvecs, tvecs, projError);
 
-  cv::Point2f pt10;
-  cv::Point2f pt50;
+  double objError = 0.0;
 
   for (size_t i=0; i < ids.size(); i++) {
 	  
@@ -82,6 +83,10 @@ void FindMarker::detectContours(){
 		      tvecs[i][0], tvecs[i][1], tvecs[i][2],
 		      rvecs[i][0], rvecs[i][1], rvecs[i][2]);
 
+      objError = (projError[i] / dist2D(corners[i][0], corners[i][2])) *
+                     (norm(tvecs[i]) / markerSize);
+
+      // System only uses one aruco maker that is ID 10.
       if (ids[i] == 10) {
         ref.tx = tvecs[i][0];
 	      ref.ty = tvecs[i][1];
@@ -91,23 +96,33 @@ void FindMarker::detectContours(){
         ref.ry = rvecs[i][1];
         ref.rz = rvecs[i][2];
 
-        pt10.x = tvecs[i][0];
-        pt10.y = tvecs[i][1];
+        cv::Mat R = GetWorldPoint(rvecs[i]);
+      	cv::Mat rot_mat = R.t();
+	
+	      transfm_msg.data[0] = rot_mat.at<double>(0,0); 
+        transfm_msg.data[1] = rot_mat.at<double>(0,1); 
+        transfm_msg.data[2] = rot_mat.at<double>(0,2);
+        transfm_msg.data[3] = tvecs[i][0];
+        transfm_msg.data[4] = rot_mat.at<double>(1,0);
+        transfm_msg.data[5] = rot_mat.at<double>(1,1);
+        transfm_msg.data[6] = rot_mat.at<double>(1,2);
+        transfm_msg.data[7] = tvecs[i][1];
+        transfm_msg.data[8] = rot_mat.at<double>(2,0);
+        transfm_msg.data[9] = rot_mat.at<double>(2,1);
+        transfm_msg.data[10] = rot_mat.at<double>(2,2);
+        transfm_msg.data[11] = tvecs[i][2];
+	      transfm_msg.data[12] = 0.0;
+	      transfm_msg.data[13] = 0.0;
+	      transfm_msg.data[14] = 0.0;
+        transfm_msg.data[15] = 1.0;
 
       }
-
-      if (ids[i] == 50) {
-        pt50.x = tvecs[i][0];
-        pt50.y = tvecs[i][1];
-      }
-
     }
   }
 
-  //std::cout << "distance from 10 to 50: " << dist2D(pt10, pt50) << std::endl;
-
   // Putting the camera output on screen.
   cv::namedWindow("Pylon View", cv::WINDOW_NORMAL);
+  //cv::resize(_image,_image, cv::Size(640, 480));
   cv::imshow("Pylon View", _image);
   cv::waitKey(10);
 
@@ -413,13 +428,22 @@ double FindMarker::calcAngleXAvg(std::vector<cv::Point2f> vpts1, std::vector<cv:
   return (tmp / 12);
 }
 
-cv::Mat GetWorldPoint(cv::Vec3d &rvecs){
+cv::Mat FindMarker::GetWorldPoint(cv::Vec3d &rvecs){
   /**
     */
-    cv::Mat Rmat = cv::Mat::zeros(3, 3, CV_64F);
+    cv::Mat Rmat = cv::Mat::ones(3, 3, CV_64F);
     cv::Rodrigues(rvecs, Rmat);
 
     return Rmat;
+}
+
+cv::Mat FindMarker::DoubleMatFromVec3b(cv::Vec3d &input){
+	cv::Mat mat(3,1, CV_64F);
+	mat.at <double>(0,0) = input[0];
+	mat.at <double>(1,0) = input[1];
+	mat.at <double>(2,0) = input[2];
+
+	return mat;
 }
 
 
