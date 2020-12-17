@@ -1,5 +1,5 @@
 /**
-  * listener.cpp
+  * findmarker.cpp
   *
   *  Created by: Daniel Illner on 10.05.2020
   */
@@ -8,9 +8,12 @@
 #include "poseEstimation.h"
 
 
-FindMarker::FindMarker(cv::Mat image,	cv::Mat camMatrix, cv::Mat distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params, 
-                       int img_height, int img_width, bool haveCamInfo) {
-  this -> _image = image;
+FindMarker::FindMarker(std::vector<cv::Mat> image, std::vector<cv::Mat> camMatrix, std::vector<cv::Mat> distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params, 
+                       std::vector<std::vector<int>> img_size, std::vector<bool> haveCamInfo) {
+ 
+  this -> _gige_image = image[0];
+  this -> _usb_image = image[1];
+
   this -> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
 
   //Check if camera is calibrated.
@@ -26,8 +29,7 @@ FindMarker::FindMarker(cv::Mat image,	cv::Mat camMatrix, cv::Mat distCoeffs, cv:
   this -> detectorParams = params;
 
   // Receive resolution.
-  this -> camera_resolution_x = img_width;
-  this -> camera_resolution_y = img_height;
+  this -> img_size = img_size;
 }
 
 FindMarker::~FindMarker(){
@@ -36,7 +38,7 @@ FindMarker::~FindMarker(){
 
 void FindMarker::detectContours(){
 
-  if (!haveCamInfo) {
+  if (!haveCamInfo[0]) {
     ROS_ERROR("No camera intrinsics");
     return;
   }
@@ -47,7 +49,7 @@ void FindMarker::detectContours(){
   std::vector<std::vector<cv::Point2f>> corners;
   std::vector<std::vector<cv::Point2f>> rejectedCandidates;
 
-  cv::aruco::detectMarkers(_image, dictionary, corners, ids, detectorParams, rejectedCandidates);
+  cv::aruco::detectMarkers(_gige_image, dictionary, corners, ids, detectorParams, rejectedCandidates);
 
   for (size_t i=0; i<ids.size(); i++) {
 	    
@@ -65,19 +67,19 @@ void FindMarker::detectContours(){
   }
 
   if (ids.size() > 0) {
-    cv::aruco::drawDetectedMarkers(_image, corners, ids);
+    cv::aruco::drawDetectedMarkers(_gige_image, corners, ids);
   }
 
   // Find pose estimation.
   std::vector <double> projError;
-  estimateMarkerPose(ids, corners, markerSize, cameraMatrix, distortionCoeffs, rvecs, tvecs, projError);
+  estimateMarkerPose(ids, corners, markerSize, cameraMatrix[0], distortionCoeffs[0], rvecs, tvecs, projError);
 
   double objError = 0.0;
 
   for (size_t i=0; i < ids.size(); i++) {
 	  
 	  if (ids[i] == 10 || ids[i] == 50 || ids[i] == 100) {
-	    cv::aruco::drawAxis(_image, cameraMatrix, distortionCoeffs, rvecs[i], tvecs[i], 0.1);
+	    cv::aruco::drawAxis(_gige_image, cameraMatrix[0], distortionCoeffs[0], rvecs[i], tvecs[i], 0.1);
 
 	    ROS_INFO("Detected id %d T %.2f %.2f %.2f R %.2f %.2f %.2f", ids[i],
 		      tvecs[i][0], tvecs[i][1], tvecs[i][2],
@@ -122,10 +124,44 @@ void FindMarker::detectContours(){
 
   // Putting the camera output on screen.
   cv::namedWindow("Pylon View", cv::WINDOW_NORMAL);
-  //cv::resize(_image,_image, cv::Size(640, 480));
-  cv::imshow("Pylon View", _image);
+  //cv::resize(_gige_image,_gige_image, cv::Size(640, 480));
+  cv::imshow("Pylon View", _gige_image);
   cv::waitKey(10);
 
+}
+
+
+void FindMarker::detectContoursAdvanced(){
+  /**
+    * This function detects markers but uses two cameras as input.
+    * TODO: THINK ABOUT REGISTERING. AND FURTHER DEVELOPMENTS.
+    */
+  if (!haveCamInfo[0] || !haveCamInfo[1]) {
+    ROS_ERROR("No camera intrinsics");
+    return;
+  }
+  
+  transfm_msg.data.resize(16);
+
+  std::vector<std::vector<int>> ids(2);
+  std::vector<std::vector<std::vector<cv::Point2f>>> corners(2);
+  std::vector<std::vector<std::vector<cv::Point2f>>> rejectedCandidates(2);
+
+  cv::aruco::detectMarkers(_gige_image, dictionary, corners[0], ids[0], detectorParams, rejectedCandidates[0]);
+  cv::aruco::detectMarkers(_usb_image, dictionary, corners[1], ids[1], detectorParams, rejectedCandidates[1]);
+
+  if (ids[0].size() > 0) {
+    cv::aruco::drawDetectedMarkers(_gige_image, corners[0], ids[0]);
+  }
+  if (ids[1].size() > 0) {
+    cv::aruco::drawDetectedMarkers(_usb_image, corners[1], ids[1]);
+  }
+  
+  cv::namedWindow("Pylon View", cv::WINDOW_NORMAL);
+  cv::imshow("Pylon View", _gige_image);
+  cv::namedWindow("USB View", cv::WINDOW_NORMAL);
+  cv::imshow("USB View", _usb_image);
+  cv::waitKey(10);
 }
 
 
@@ -228,7 +264,7 @@ void FindMarker::computeIntersection(float lineParams[16]) {
     pt.x = (int)fcorners[i].x;
     pt.y = (int)fcorners[i].y;
 
-    cv::circle(_image, pt, 5, CV_RGB(0, 0, 255), -1);
+    cv::circle(_gige_image, pt, 5, CV_RGB(0, 0, 255), -1);
   }
 }
 

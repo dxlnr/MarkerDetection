@@ -37,11 +37,12 @@ struct Stripe {
 class FindMarker {
 
   public:
-  	FindMarker(cv::Mat image, cv::Mat camMatrix, cv::Mat distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params,
-	  		   int img_height, int img_width, bool haveCamInfo);
+  	FindMarker(std::vector<cv::Mat> image, std::vector<cv::Mat> camMatrix, std::vector<cv::Mat> distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params,
+	  		   std::vector<std::vector<int>> img_size, std::vector<bool> haveCamInfo);
     ~FindMarker();
 
     void detectContours();
+	void detectContoursAdvanced();
 
 	marker_detection::reference ref;
 	std_msgs::Float64MultiArray transfm_msg;
@@ -64,10 +65,10 @@ class FindMarker {
 
 	void setSingleReferenzPoints(float markerLength, std::vector<cv::Point3f> &c_point);
 
-    cv::Mat _image;
-    cv::Mat grayScale;
-	cv::Mat cameraMatrix;
-    cv::Mat distortionCoeffs;
+    cv::Mat _gige_image;
+	cv::Mat _usb_image;
+	std::vector<cv::Mat> cameraMatrix;
+    std::vector<cv::Mat> distortionCoeffs;
 	std::vector<cv::Vec3d> rvecs;
 	std::vector<cv::Vec3d> tvecs;
 
@@ -75,11 +76,8 @@ class FindMarker {
 	cv::Point2f fcorners[4];
 	cv::Point2f set2Points[4];
 
-	
-	// Important values
-	int camera_resolution_x;
-	int camera_resolution_y;
-	bool haveCamInfo;
+	std::vector<std::vector<int>> img_size;
+	std::vector<bool> haveCamInfo;
 	
 	cv::Mat rot_mat = cv::Mat::ones(cv::Size(3,3), CV_64F);
 	cv::Mat transformation_mat = cv::Mat::zeros(cv::Size(4,4), CV_64F);
@@ -89,6 +87,7 @@ class FindMarker {
 	cv::Ptr<cv::aruco::Dictionary> dictionary;
 	cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
 
+	// helper functions
 	double dist2D(const cv::Point2f &p1, const cv::Point2f &p2);
 	double dist3D(const cv::Point3f &p1, const cv::Point3f &p2);
 	double dist3DtoCamera(const cv::Point3f &p);
@@ -97,7 +96,6 @@ class FindMarker {
 	double calcAngleXAvg(std::vector<cv::Point2f> vpts1, std::vector<cv::Point2f> vpts2) ;
 	cv::Mat GetWorldPoint(cv::Vec3d &rvecs);
 	cv::Mat DoubleMatFromVec3b(cv::Vec3d &input);
-
 };
 
 #endif

@@ -28,14 +28,18 @@ class ReferenceFinder {
   public:
 
     ReferenceFinder(const ros::Publisher& pub) : reference_pub_(pub){
-      haveCamInfo = false;
-      cameraMatrix = cv::Mat::zeros(3, 3, CV_64F);
-      distortionCoeffs = cv::Mat::zeros(1, 5, CV_64F);
-      img_height = 0;
-      img_width = 0;
-      haveCamInfo = false;
+
+      // First Camera parameter
+      cameraMatrix[0] = cv::Mat::zeros(3, 3, CV_64F);
+      distortionCoeffs[0] = cv::Mat::zeros(1, 5, CV_64F);
+      haveCamInfo[0] = false;
       
       setDetectorParameters();
+
+      // Second Camera parameter
+      cameraMatrix[1] = cv::Mat::zeros(3, 3, CV_64F);
+      distortionCoeffs[1] = cv::Mat::zeros(1, 5, CV_64F);
+      haveCamInfo[1] = false;
     }
 
     void oneImageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -43,12 +47,12 @@ class ReferenceFinder {
       ROS_INFO("Subscribing to one camera. Pylon Camera");
       try
       {
+        std::vector<cv::Mat> image = std::vector<cv::Mat>(2);
         cv::Mat rgb_img = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8) -> image;
+  		  image[0] = rgb_img.clone();
+        image[1] = cv::Mat::zeros(cv::Size(img_size[1][0], img_size[1][1]), CV_64FC1); 
 
-        cv::Mat grayScale;
-  		  cv::Mat filtered = rgb_img.clone();
-
-        FindMarker marker(filtered, cameraMatrix, distortionCoeffs, params, img_height, img_width, haveCamInfo);
+        FindMarker marker(image, cameraMatrix, distortionCoeffs, params, img_size, haveCamInfo);
         marker.detectContours();
 
         //reference_pub_.publish(marker.ref);
@@ -66,19 +70,16 @@ class ReferenceFinder {
       ROS_INFO("Synchronization successful. Subscribing to two cameras.");
       try
       {
-        cv::Mat img_left = cv_bridge::toCvCopy(msgleft, sensor_msgs::image_encodings::BGR8) -> image;
-        cv::Mat img_right = cv_bridge::toCvCopy(msgright, sensor_msgs::image_encodings::BGR8) -> image;
+        std::vector<cv::Mat> image = std::vector<cv::Mat>(2);
+        cv::Mat gige_img = cv_bridge::toCvCopy(msgleft, sensor_msgs::image_encodings::BGR8) -> image;
+        cv::Mat usb_img = cv_bridge::toCvCopy(msgright, sensor_msgs::image_encodings::BGR8) -> image;
 
-  		  cv::Mat filtered_left = img_left.clone();
-        cv::Mat filtered_right = img_right.clone();
+  		  image[0] = gige_img.clone();
+        image[1] = usb_img.clone();
 
         // TODO: REGISTER THE TWO IMAGES OF THE CAMERAS AND PERFORM 3D STUFF.
-
-        cv::namedWindow("Pylon View", cv::WINDOW_NORMAL);
-        cv::imshow("Pylon View", img_left);
-        cv::namedWindow("USB View", cv::WINDOW_NORMAL);
-        cv::imshow("USB View", img_right);
-        cv::waitKey(10);
+        FindMarker marker(image, cameraMatrix, distortionCoeffs, params, img_size, haveCamInfo);
+        marker.detectContoursAdvanced();
 
       }
       catch (cv_bridge::Exception& e)
@@ -91,28 +92,29 @@ class ReferenceFinder {
     void camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg){
         /**
           Subscribing the camera info, created by calibration process.
+
+          TODO: IMPLEMENT ALSO FOR USB CAMERA.
           */
 
-        if (haveCamInfo) {
+        if (haveCamInfo[0]) {
             return;
         }
 
         if (msg->K != boost::array<double, 9>({0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0})) {
             for (int i=0; i<3; i++) {
                 for (int j=0; j<3; j++) {
-                    cameraMatrix.at<double>(i, j) = msg->K[i*3+j];
+                    cameraMatrix[0].at<double>(i, j) = msg->K[i*3+j];
                 }
             }
-
             for (int i=0; i<5; i++) {
-                distortionCoeffs.at<double>(0,i) = msg->D[i];
+                distortionCoeffs[0].at<double>(0,i) = msg->D[i];
             }
 
-            haveCamInfo = true;
-            img_height = msg->height;
-            img_width = msg->width;
+            haveCamInfo[0] = true;
+            img_size[0][0] = msg->height;
+            img_size[0][1] = msg->width;
             //frameId = msg->header.frame_id;
-            ros::Time tstamp = msg->header.stamp;
+            //ros::Time tstamp = msg->header.stamp;
         }
         else {
             ROS_WARN("%s", "CameraInfo message has invalid intrinsics, K matrix all zeros");
@@ -135,14 +137,13 @@ class ReferenceFinder {
   private:
     ros::Publisher reference_pub_;
 
-    bool haveCamInfo;
-    int img_height;
-    int img_width;
+    // First Camera (GIGe) parameter.
+    std::vector<bool> haveCamInfo = std::vector<bool>(2);
+    std::vector<std::vector<int>> img_size{2, std::vector<int>(2,0)};
 
-    cv::Mat cameraMatrix;
-    cv::Mat distortionCoeffs;
+    std::vector<cv::Mat> cameraMatrix = std::vector<cv::Mat>(2);
+    std::vector<cv::Mat> distortionCoeffs = std::vector<cv::Mat>(2);
     cv::Ptr<cv::aruco::DetectorParameters> params;
-
 };
 
 
