@@ -1,8 +1,8 @@
 /**
-  * listener.cpp
-  *
-  *  Created by: Daniel Illner on 10.05.2020
-  */
+	* listener.cpp
+	*
+	*  Created by: Daniel Illner on 10.05.2020
+	*/
 
 #ifndef FINDMARKER_H
 #define FINDMARKER_H
@@ -36,21 +36,21 @@ struct Stripe {
 
 class FindMarker {
 
-  public:
-  	FindMarker(std::vector<cv::Mat> image, std::vector<cv::Mat> camMatrix, std::vector<cv::Mat> distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params,
-	  		   std::vector<std::vector<int>> img_size, std::vector<bool> haveCamInfo);
-    ~FindMarker();
+	public:
+		FindMarker(std::vector<cv::Mat> image, std::vector<cv::Mat> camMatrix, std::vector<cv::Mat> distCoeffs, cv::Ptr<cv::aruco::DetectorParameters> params,
+					 std::vector<std::vector<int>> img_size, std::vector<bool> haveCamInfo);
+		~FindMarker();
 
-    void detectContours();
+		void detectContours();
 	void detectContoursAdvanced();
 
 	marker_detection::reference ref;
 	std_msgs::Float64MultiArray transfm_msg;
 
-  private:
+	private:
 
-    int subpixSampleSafe(const cv::Mat& pSrc, const cv::Point2f& p);
-    cv::Mat calculate_Stripe(double dx, double dy, Stripe & st);
+		int subpixSampleSafe(const cv::Mat& pSrc, const cv::Point2f& p);
+		cv::Mat calculate_Stripe(double dx, double dy, Stripe & st);
 
 	void computeIntersection(float lineParams[16]);
 	void setReferenzPoints();
@@ -59,16 +59,16 @@ class FindMarker {
 							const std::vector<std::vector<cv::Point2f>> &corners, float markerLength,
 							const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs,
 							std::vector<cv::Vec3d> &rvecs, std::vector<cv::Vec3d> &tvecs, std::vector<double>& projErr);
-	
+
 	double getReprojectionError(const std::vector<cv::Point3f> &objPoints, const std::vector<cv::Point2f> &imagePoints,
-                             	const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs, const cv::Vec3d &rvec, const cv::Vec3d &tvec);
+															 const cv::Mat &cameraMatrix, const cv::Mat &distCoeffs, const cv::Vec3d &rvec, const cv::Vec3d &tvec);
 
 	void setSingleReferenzPoints(float markerLength, std::vector<cv::Point3f> &c_point);
 
-    cv::Mat _gige_image;
+		cv::Mat _gige_image;
 	cv::Mat _usb_image;
 	std::vector<cv::Mat> cameraMatrix;
-    std::vector<cv::Mat> distortionCoeffs;
+		std::vector<cv::Mat> distortionCoeffs;
 	std::vector<cv::Vec3d> rvecs;
 	std::vector<cv::Vec3d> tvecs;
 
@@ -78,7 +78,7 @@ class FindMarker {
 
 	std::vector<std::vector<int>> img_size;
 	std::vector<bool> haveCamInfo;
-	
+
 	cv::Mat rot_mat = cv::Mat::ones(cv::Size(3,3), CV_64F);
 	cv::Mat transformation_mat = cv::Mat::zeros(cv::Size(4,4), CV_64F);
 
